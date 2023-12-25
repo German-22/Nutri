@@ -67,11 +67,33 @@ def selecionar_ruta(s):
         except:
             messagebox.showinfo(message="Error al Configurar la Ruta de Registro", title="Ruta Erronea")
 
+
+def leer_base():
+    try:
+        conexion=sqlite3.connect(entrada_ruta.get())
+        a = conexion.execute("""SELECT DISTINCT deposito FROM mp ;""")         
+        selec_deposito['values'] = list(a)           
+        conexion.close()
+    except:
+        messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
+
+
 def crear_pdf():
-    print(str(entrada_ruta_registro.get()) + "/" + str(entrada_fecha.get()) + str(selec_mp.get()) + ".pdf")
+    
     c = canvas.Canvas(str(entrada_ruta_registro.get()) + "/" + str(entrada_fecha.get()) + str(selec_mp.get()) + ".pdf")
-    c.drawString(100, 750, "Hello, I am a PDF document created with Python!")
-    c.save(  )
+    c.drawString(100, 750, "Fecha: " + entrada_fecha.get())
+    c.save()
+
+def seleccionar_deposito(s):
+    dep = selec_deposito.get()
+    try:
+        conexion=sqlite3.connect(entrada_ruta.get())
+        a = conexion.execute("""SELECT mp FROM mp WHERE deposito = ?;""", (dep,))         
+        selec_mp['values'] = list(a)           
+        conexion.close()
+    except:
+        messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
+
 
 def recepcionar():
     fecha = entrada_fecha.get()
@@ -81,19 +103,40 @@ def recepcionar():
     lote = entrada_lote.get()
     deposito = selec_deposito.get()
     remito = entrada_remito.get()
-    try:
-        conexion=sqlite3.connect(entrada_ruta.get())
-        conexion.execute("""insert into recepcion (fecha,mp,lote,vto,cantidad,deposito,nderemito)
-        VALUES(?,?,?,?,?,?,?);""",(fecha, mp, lote,vto,cantidad,deposito,remito))
-        conexion.commit()                  
-        conexion.close()
-    except:
-        messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
-
     #try:
-    crear_pdf()
+    conexion=sqlite3.connect(entrada_ruta.get())
+    conexion.execute("""insert into recepcion (fecha,mp,lote,vto,cantidad,deposito,nderemito)
+    VALUES(?,?,?,?,?,?,?);""",(fecha, mp, lote,vto,cantidad,deposito,remito))
+    a = conexion.execute("""SELECT stock FROM stock WHERE mp = ? and lote = ?;""",(mp, lote))
+    b = a.fetchone()
+    
+    if len(b) == 0:
+        stock = cantidad
+        print(stock)
+    else:       
+        stock = (float((b)[0])) + float(cantidad)   
+           
+    conexion.execute("""UPDATE stock SET stock = ? WHERE mp = ? and lote = ?;""",(stock,mp,lote))
+    conexion.commit()                  
+    conexion.close()
     #except:
-    #    messagebox.showinfo(message="Error al Crear Registro", title="Error de Conexion")
+     #   messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
+
+    try:
+        crear_pdf()
+    except:
+        messagebox.showinfo(message="Error al Crear Registro", title="Error de Conexion")
+
+def validar_entrada(numero):
+    try:
+        int(numero)
+        return True
+    except:
+        if numero == "-":
+            return True
+        else:
+            return False
+
 ventana = Tk()
 ventana.geometry("800x650")
 ventana.title("Deposito")
@@ -129,12 +172,14 @@ label_remito.place(relx=0.05, rely=0.8)
 entrada_ruta_registro = ttk.Entry(pestaña_conf, width= 60)
 entrada_ruta = ttk.Entry(pestaña_conf, width= 60)
 selec_mp = ttk.Combobox(pestaña_recepcion, width=30)
-entrada_fecha = ttk.Entry(pestaña_recepcion, width= 30)
+entrada_fecha = ttk.Entry(pestaña_recepcion, width= 30,validate="key",
+                      validatecommand=((pestaña_recepcion.register(validar_entrada)), "%S"))
 selec_mp = ttk.Combobox(pestaña_recepcion, width=30)
 entrada_lote = ttk.Entry(pestaña_recepcion, width=30)
-entrada_vto = ttk.Entry(pestaña_recepcion, width=30)
+entrada_vto = ttk.Entry(pestaña_recepcion, width=30,validate="key",validatecommand=((pestaña_recepcion.register(validar_entrada)),"%S"))
 entrada_cantidad = ttk.Entry(pestaña_recepcion, width=30)
 selec_deposito = ttk.Combobox(pestaña_recepcion, width=30)
+selec_deposito.bind("<<ComboboxSelected>>", partial(seleccionar_deposito))
 entrada_remito = ttk.Entry(pestaña_recepcion, width=30)
 
 entrada_ruta_registro.place(relx=0.27, rely=0.3)
@@ -151,9 +196,9 @@ configurar_ruta.place(relx=0.8, rely=0.7)
 configurar_ruta_registro = ttk.Button(pestaña_conf,command = partial(selecionar_ruta,"registro"),text="Conf. Ruta")
 configurar_ruta_registro.place(relx=0.8, rely=0.3)
 
-recepcionar = ttk.Button(pestaña_recepcion,command=recepcionar,text="Recepcionar")
-recepcionar.place(relx=0.7, rely=0.5)
-selec_mp['values'] = "Azucar"
-selec_deposito['values'] = "ntc"
+recepcionar_mp = ttk.Button(pestaña_recepcion,command=recepcionar,text="Recepcionar")
+recepcionar_mp.place(relx=0.7, rely=0.5)
+
 leer_archivo()
+leer_base()
 ventana.mainloop()
