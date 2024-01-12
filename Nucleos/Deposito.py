@@ -80,7 +80,7 @@ def leer_base():
 
 def crear_pdf():
     
-    c = canvas.Canvas(str(entrada_ruta_registro.get()) + "/" + str(entrada_fecha.get()) + str(selec_mp.get()) + ".pdf")
+    c = canvas.Canvas(str(entrada_ruta_registro.get()) + "/" + str(selec_mp.get()) + ".pdf")
     c.drawString(100, 750, "Fecha: " + entrada_fecha.get())
     c.save()
 
@@ -103,24 +103,25 @@ def recepcionar():
     lote = entrada_lote.get()
     deposito = selec_deposito.get()
     remito = entrada_remito.get()
-    #try:
-    conexion=sqlite3.connect(entrada_ruta.get())
-    conexion.execute("""insert into recepcion (fecha,mp,lote,vto,cantidad,deposito,nderemito)
-    VALUES(?,?,?,?,?,?,?);""",(fecha, mp, lote,vto,cantidad,deposito,remito))
-    a = conexion.execute("""SELECT stock FROM stock WHERE mp = ? and lote = ?;""",(mp, lote))
-    b = a.fetchone()
-    
-    if len(b) == 0:
-        stock = cantidad
-        print(stock)
-    else:       
-        stock = (float((b)[0])) + float(cantidad)   
-           
-    conexion.execute("""UPDATE stock SET stock = ? WHERE mp = ? and lote = ?;""",(stock,mp,lote))
-    conexion.commit()                  
-    conexion.close()
-    #except:
-     #   messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
+    try:
+        conexion=sqlite3.connect(entrada_ruta.get())
+        conexion.execute("""insert into recepcion (fecha,mp,lote,vto,cantidad,deposito,nderemito)
+        VALUES(?,?,?,?,?,?,?);""",(fecha, mp, lote,vto,cantidad,deposito,remito))
+        conexion.commit()
+        a = conexion.execute("""SELECT stock FROM stock WHERE mp = ? and lote = ?;""",(mp, lote))
+        b = a.fetchone()        
+        if b == None:
+            conexion.execute("""insert into stock (mp,deposito,lote,stock,vto)
+            VALUES(?,?,?,?,?);""",(mp,deposito,lote,cantidad,vto))
+            conexion.commit()         
+        else:       
+            stock = (float((b)[0])) + float(cantidad)   
+            
+            conexion.execute("""UPDATE stock SET stock = ? WHERE mp = ? and lote = ?;""",(stock,mp,lote))
+            conexion.commit()                
+        conexion.close()
+    except:
+        messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
 
     try:
         crear_pdf()
@@ -132,7 +133,7 @@ def validar_entrada(numero):
         int(numero)
         return True
     except:
-        if numero == "-":
+        if numero == "/":
             return True
         else:
             return False
