@@ -52,16 +52,14 @@ def calcular():
     formula = combobox.get()
     ndebatch = int(entrada_ndebatch.get())
     mp = []
-    dep = []
-    
+    dep = []    
     cantidad = []
     reg = []
     dic_vto = {}
     dic_stock = {}    
     dic_lote = {}
     dic_deposito = {}
-    
-    
+       
     vto = []
     stock = []
     mp_stock = []
@@ -92,9 +90,9 @@ def calcular():
             deposito.clear()             
             a = conexion.execute("""SELECT * FROM stock WHERE mp = ? and estado = "Liberado" and stocksim > ? ORDER BY vto;""",(i,0))         
             b = a.fetchall()     
-                   
+                    
             for p in b:            
-                if datetime.strptime(str(p[5]), "%Y/%m/%d") > (datetime.strptime(str(datetime.now().date()),"%Y-%m-%d")):
+                if datetime.strptime(str(p[5]), "%Y-%m-%d") > (datetime.strptime(str(datetime.now().date()),"%Y-%m-%d")):
                     vto.append(p[5])
                     stock.append(p[4])                
                     lote.append(p[2])
@@ -115,8 +113,7 @@ def calcular():
         n =0
         m = 0
         parcial = False
-        entero = False
-        #Recorro los lotes en stock   
+        entero = False          
         cant = float(dic_stock[i][m])
         conexion=sqlite3.connect(entrada_ruta_bd.get())   
         while n<ndebatch:                    
@@ -137,8 +134,7 @@ def calcular():
                         
                         conexion.execute("""insert into simulacion (codprod,formula, mp,deposito, lote, cantidad, vto, ndebatch)
                             VALUES(?,?,?,?,?,?,?,?);""",(entrada_cod_produccion.get(), combobox.get(), i,dic_deposito[i][m],dic_lote[i][m],cant,dic_vto[i][m] ,n))
-                        conexion.commit() 
-                        
+                        conexion.commit()                         
                         parcial = True
                         m = m + 1
                     else:
@@ -161,7 +157,9 @@ def calcular():
                                 m = m + 1
                             else:
                                 parcial = False
-                                entero = True                 
+                                entero = True 
+                            if n == ndebatch:
+                                cant = cantidad[k]          
                 else:
                     cant = cantidad[k]
                     messagebox.showinfo(message="No Hay suficiente stock de" , title="Stock Insuficiente")
@@ -178,12 +176,13 @@ def calcular():
                     conexion.commit() 
                 else:
                     n = n + 1
-                    cuadro.insert("", tk.END, text=entrada_cod_produccion.get(),
-                        values=(i,"",n,cantidad[k],dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]))
-                    conexion.execute("""insert into simulacion (codprod,formula, mp, deposito, lote, cantidad, vto, ndebatch)
-                            VALUES(?,?,?,?,?,?,?,?);""",(entrada_cod_produccion.get(), combobox.get(), i,dic_deposito[i][m],dic_lote[i][m],cantidad[k],dic_vto[i][m] ,n))
-                    conexion.commit() 
-                    cant = cant - cantidad[k]
+                    if n <= ndebatch:
+                        cuadro.insert("", tk.END, text=entrada_cod_produccion.get(),
+                            values=(i,"",n,cantidad[k],dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]))
+                        conexion.execute("""insert into simulacion (codprod,formula, mp, deposito, lote, cantidad, vto, ndebatch)
+                                VALUES(?,?,?,?,?,?,?,?);""",(entrada_cod_produccion.get(), combobox.get(), i,dic_deposito[i][m],dic_lote[i][m],cantidad[k],dic_vto[i][m] ,n))
+                        conexion.commit() 
+                        cant = cant - cantidad[k]
         k = k + 1               
     conexion.close()      
 
@@ -198,8 +197,7 @@ def nuevo():
     b = a.fetchall()  
     for i in b:  
         r = conexion.execute("""SELECT * FROM stock WHERE mp = ? and lote = ? and deposito = ? ;""",(i[3],i[5],i[4]))         
-        f = r.fetchall()
-                 
+        f = r.fetchall()                 
         conexion.execute("""UPDATE stock SET stocksim = ? WHERE mp = ? and lote = ? and deposito = ?;""",(f[0][4]-i[6],f[0][0],f[0][2],f[0][1]))
         conexion.commit() 
             
