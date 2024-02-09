@@ -238,10 +238,7 @@ def formula_seleccionada(event, sl):
             j = j + 1
     except:
             messagebox.showinfo(message="Error en el Formato del Archivo de Lotes", title="Error")
-
-    
-
-    
+     
     if (event == "nucleos"):
         MP.clear()
         Deposito = []
