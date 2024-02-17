@@ -241,7 +241,8 @@ def validar_entrada_remito(numero):
 
 def validar_entrada_lote(numero):
     try:
-        int(numero)
+        if numero == " ":
+            return False
         if len(entrada_lote.get()) == 0:
             if int(numero) == 0:
                 return False
@@ -251,6 +252,14 @@ def validar_entrada_lote(numero):
     except:
         return True   
        
+def seleccionar_mp(s):
+    conexion=sqlite3.connect(entrada_ruta.get())
+    mp = selec_mp.get()
+    a = conexion.execute("""SELECT codmp FROM mp WHERE mp = ? ;""", (mp,))
+    mostrar_codigo.delete(0,"end")
+    mostrar_codigo.insert(0,a.fetchall())        
+    conexion.close()
+
 ventana = Tk()
 ventana.geometry("800x650")
 ventana.title("Deposito")
@@ -285,14 +294,15 @@ label_remito.place(relx=0.01, rely=0.35)
 
 entrada_ruta_registro = ttk.Entry(pestaña_conf, width= 60)
 entrada_ruta = ttk.Entry(pestaña_conf, width= 60)
-selec_mp = ttk.Combobox(pestaña_recepcion, width=30)
+selec_mp = ttk.Combobox(pestaña_recepcion, width=20,state="readonly")
+selec_mp.bind("<<ComboboxSelected>>", partial(seleccionar_mp))
 entrada_fecha = ttk.Entry(pestaña_recepcion, width= 30,validate="key",
                       validatecommand=((pestaña_recepcion.register(validar_entrada)), "%S"))
-selec_mp = ttk.Combobox(pestaña_recepcion, width=30)
+
 entrada_lote = ttk.Entry(pestaña_recepcion, width=30, validate="key",validatecommand=((pestaña_recepcion.register(validar_entrada_lote)),"%S"))
 entrada_vto = ttk.Entry(pestaña_recepcion, width=30,validate="key",validatecommand=((pestaña_recepcion.register(validar_entrada)),"%S"))
 entrada_cantidad = ttk.Entry(pestaña_recepcion, width=30,validate="key",validatecommand=((pestaña_recepcion.register(validar_entrada_cantidad)),"%S"))
-selec_deposito = ttk.Combobox(pestaña_recepcion, width=30)
+selec_deposito = ttk.Combobox(pestaña_recepcion, width=30,state="readonly")
 selec_deposito.bind("<<ComboboxSelected>>", partial(seleccionar_deposito))
 entrada_remito = ttk.Entry(pestaña_recepcion, width=30,validate="key",validatecommand=((pestaña_recepcion.register(validar_entrada_remito)),"%S"))
 
@@ -300,6 +310,8 @@ entrada_ruta_registro.place(relx=0.27, rely=0.3)
 entrada_ruta.place(relx=0.27, rely=0.7)
 entrada_fecha.place(relx=0.15, rely=0.05)
 selec_mp.place(relx=0.15, rely=0.15)
+mostrar_codigo = ttk.Entry(pestaña_recepcion, width=10)
+mostrar_codigo.place(relx=0.35, rely=0.15)
 entrada_lote.place(relx=0.15, rely=0.25)
 entrada_vto.place(relx=0.15, rely=0.30)
 entrada_cantidad.place(relx=0.15, rely=0.20)

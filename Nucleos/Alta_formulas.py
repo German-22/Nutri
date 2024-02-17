@@ -1,12 +1,9 @@
 from tkinter import *
 from tkinter import ttk,messagebox, filedialog
 import sqlite3
-import os
 from csv import reader, writer
-
 from functools import partial
 import Leer_archivo as la 
-
 ruta_txt = "/archnucl"
 
 def leer_archivo():
@@ -30,7 +27,6 @@ def leer_base():
     
     except:
         messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
-
     
 def selecionar_ruta():    
     ruta_guardar = []
@@ -47,36 +43,62 @@ def selecionar_ruta():
     except:
         messagebox.showinfo(message="Error al Configurar la Ruta", title="Ruta Erronea")
     
-
 def alta_insumo():
-    mp = entrada_mp.get()
-    deposito = entrada_deposito.get()
-   
+    mp = ""
+    a = entrada_mp.get()
+    deposito = entrada_deposito.get().upper()
+    codigo = entrada_codigo.get()    
     try:
-        conexion=sqlite3.connect(entrada_ruta.get())
-        conexion.execute("""insert into mp (mp,deposito)
-        VALUES(?,?);""",(mp,deposito))
-        conexion.commit()                  
-        conexion.close()
+        if a != "":
+            for i in a:
+                if i ==" ":
+                    mp = mp + "_"
+                else:
+                    mp = mp + i           
+        conexion=sqlite3.connect(entrada_ruta.get())    
+        a = conexion.execute("""SELECT * FROM depositos WHERE deposito = ?;""",(deposito,))
+        b = a.fetchall()
+        if b == []:
+            conexion.execute("""insert into depositos (deposito)
+            VALUES(?);""",(deposito,))
+            conexion.commit()         
+        conexion.execute("""insert into mp (mp,deposito,codmp)
+        VALUES(?,?,?);""",(mp,deposito,codigo))
+        conexion.commit()                     
+        conexion.close()    
+        buscar()
     except:
         messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
 
 def alta_formula():  
+        nom_for = ""
         sector = selec_sector.get()        
-        nom_for = str(entrada_nombre_for.get())        
-        if nom_for != "":
+        a = str(entrada_nombre_for.get())  
+        codigo = entrada_codigo_for.get()   
+                 
+        if a != "" and sector != "" and codigo != "":
+            for i in a:
+                if i ==" ":
+                    nom_for = nom_for + "_"
+                else:
+                    nom_for = nom_for + i           
+           
             conexion=sqlite3.connect(entrada_ruta.get())
-            conexion.execute(""" CREATE TABLE IF NOT EXISTS '%s' (
+            conexion.execute(""" CREATE TABLE IF NOT EXISTS '%s' (                            
                             mp TEXT NOT NULL,
                             deposito TEXT NOT NULL,
                             cantidad REAL NOT NULL,
                             sector TEXT NOT NULL,                            
-                            formula TEXT NOT NULL,                            
+                            formula TEXT NOT NULL,
+                            codfor  TEXT NOT NULL,
+                             codmp TEXT NOT NULL,
+                            FOREIGN KEY("codfor") REFERENCES "formulas"("codfor"), 
+                            FOREIGN KEY("codmp") REFERENCES "mp"("codmp"),                          
                             PRIMARY KEY(mp)
             );""" % nom_for)            
             conexion.commit()                     
-            conexion.execute("""insert into formulas (nombre,sector)
-            VALUES(?,?);""",(nom_for,sector))              
+            conexion.execute("""insert into formulas (nombre,sector,codfor)
+            VALUES(?,?,?);""",(nom_for,sector,codigo))              
             conexion.commit()  
             a = conexion.execute("""SELECT nombre from formulas;""")         
             selec_formula['values'] = list(a)        
@@ -90,14 +112,22 @@ def agregar_insumo():
     mp = entrada_mp_for.get()
     selec_formula.set(nom_for)
     cantidad = entrada_cantidad_for.get()
-    deposito = entrada_deposito_for.get()   
+    deposito = entrada_deposito_for.get()
+
+    if nom_for == "" or mp == "" or cantidad == "" or deposito == "":
+        messagebox.showinfo(message="Complete los Campos", title="Error")
+        return
+
     try:    
         conexion=sqlite3.connect(entrada_ruta.get())
-        a = conexion.execute("""SELECT sector FROM formulas WHERE nombre = ?;""",(nom_for,))
+        a = conexion.execute("""SELECT * FROM formulas WHERE nombre = ?;""",(nom_for,))
         b = a.fetchall()    
+
         if b != []:
-            conexion.execute("""insert into %s (mp,deposito,cantidad,sector,formula)
-                VALUES(?,?,?,?,?);""" % nom_for ,(mp,deposito,cantidad,b[0][0], nom_for))
+            d = conexion.execute("""SELECT codmp FROM mp WHERE mp = ?;""",(mp,))
+            e = d.fetchall()   
+            conexion.execute("""insert into %s (mp,deposito,cantidad,sector,formula,codfor,codmp)
+                VALUES(?,?,?,?,?,?,?);""" % nom_for ,(mp,deposito,cantidad,b[0][1], nom_for,b[0][2],e[0][0]))
             conexion.commit()                  
             conexion.close()
             buscar_formula()
@@ -111,14 +141,15 @@ def eliminar_insumo():
     nom_for = entrada_nombre_for.get()
     try:
         elemento_seleccionado = cuadro_formula.item(cuadro_formula.selection())["text"]
-        conexion=sqlite3.connect(entrada_ruta.get())
+        
+        conexion=sqlite3.connect(entrada_ruta.get()) 
+
         conexion.execute("""DELETE FROM %s WHERE mp = ?;""" % nom_for, (elemento_seleccionado,)) 
-        conexion.commit()             
+        conexion.commit()   
         conexion.close()
         buscar_formula()
     except:
             messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
-
             
 def seleccionar_deposito(s):
     dep = entrada_deposito_for.get()
@@ -130,7 +161,6 @@ def seleccionar_deposito(s):
     except:
         messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
 
-
 def buscar():    
     try:
         conexion=sqlite3.connect(entrada_ruta.get())
@@ -139,7 +169,7 @@ def buscar():
         for s in cuadro.get_children():
             cuadro.delete(s)
         for i in a:
-            cuadro.insert("", j, text=i[0], values=(i[1]))
+            cuadro.insert("", j, text=i[0], values=(i[1], i[2]))
             j +=1               
         conexion.close()
     except:
@@ -163,11 +193,11 @@ def buscar_formula():
     except:
             messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
     
-
 def eliminar():
     try:
         elemento_seleccionado = cuadro.item(cuadro.selection())["text"]
         conexion=sqlite3.connect(entrada_ruta.get())
+        conexion.execute("""PRAGMA Foreign_keys = ON;""")        
         conexion.execute("""DELETE FROM mp WHERE mp = ?;""", (elemento_seleccionado,)) 
         conexion.commit()             
         conexion.close()
@@ -180,14 +210,14 @@ def validar_entrada(numero):
         int(numero)
         return True
     except:
-        if numero == "-":
+        if numero == ".":
             return True
         else:
             return False
+
 def cerrar():
     ventana.destroy()
   
-
 ventana = Tk()
 ventana.geometry("800x600")
 ventana.title("Alta")
@@ -203,21 +233,23 @@ pestaña_conf.place(x=0, y=0, relheight=1, relwidth=1)
 tab_control.add(pestaña_insumo, text="Alta Insumos")
 tab_control.add(pestaña_formula, text="Alta Formula")
 tab_control.add(pestaña_conf, text="Configuracion")
-
 label_ruta = ttk.Label(pestaña_conf, text="Ruta a Base de Datos")
 label_mp = ttk.Label(pestaña_insumo, text="Materia Prima")
 label_entrada_deposito = ttk.Label(pestaña_insumo, text="Deposito")
-
+label_codigo = ttk.Label(pestaña_insumo, text="CodigoMP")
 label_ruta.place(relx=0.05, rely=0.7)
 label_mp.place(relx=0.01, rely=0.1)
-label_entrada_deposito.place(relx=0.5, rely=0.1)
+label_entrada_deposito.place(relx=0.35, rely=0.1)
+label_codigo.place(relx=0.6, rely=0.1)
 
 entrada_ruta = ttk.Entry(pestaña_conf, width= 60)
-entrada_mp = ttk.Entry(pestaña_insumo, width=30)
-entrada_deposito = ttk.Entry(pestaña_insumo, width=30)
+entrada_mp = ttk.Entry(pestaña_insumo, width=25)
+entrada_deposito = ttk.Entry(pestaña_insumo, width=15)
+entrada_codigo = ttk.Entry(pestaña_insumo, width=10)
 entrada_ruta.place(relx=0.27, rely=0.7)
 entrada_mp.place(relx=0.12, rely=0.1)
-entrada_deposito.place(relx=0.6, rely=0.1)
+entrada_deposito.place(relx=0.45, rely=0.1)
+entrada_codigo.place(relx=0.7, rely=0.1)
 
 configurar_ruta = ttk.Button(pestaña_conf,command = selecionar_ruta,text="Conf. Ruta")
 configurar_ruta.place(relx=0.8, rely=0.7)
@@ -233,26 +265,28 @@ agregar.place(relx=0.7, rely=0.09)
 eliminar_formula= ttk.Button(pestaña_formula,command= eliminar_insumo,text="Eliminar MP")
 eliminar_formula.place(relx=0.85, rely=0.09)
 alta_formul = ttk.Button(pestaña_formula,command=alta_formula,text="Alta Formula")
-alta_formul.place(relx=0.7, rely=0.01)
+alta_formul.place(relx=0.9, rely=0.01)
 buscar_formul = ttk.Button(pestaña_formula,command=buscar_formula,text="Buscar Formula")
 buscar_formul.place(relx=0.2, rely=0.17)
 
-cuadro = ttk.Treeview(pestaña_insumo, columns=("Deposito"))
+cuadro = ttk.Treeview(pestaña_insumo, columns=("Deposito","CodigoMP"))
 barra = ttk.Scrollbar(cuadro)
-cuadro.column("#0", width=50, anchor="center")
-cuadro.column("Deposito", width=50, anchor="center")
+cuadro.column("#0", width=120, anchor="center")
+cuadro.column("Deposito", width=30, anchor="center")
+cuadro.column("CodigoMP", width=30, anchor="center")
 cuadro.heading("#0", text="Materia Prima")
 cuadro.heading("Deposito", text="Deposito")
+cuadro.heading("CodigoMP", text="CodigoMP")
 cuadro.config(yscrollcommand=barra.set)
 barra.config(command=cuadro.yview)
-cuadro.place(relx=0.2, rely=0.4, relwidth=0.5, relheight=0.5)
-barra.place(relx=0.948, rely=0.11, relheight=0.87)
+cuadro.place(relx=0.1, rely=0.4, relwidth=0.8, relheight=0.5)
+barra.place(relx=0.96, rely=0.11, relheight=0.87)
 
 cuadro_formula = ttk.Treeview(pestaña_formula, columns=("Deposito","Cantidad","Registro"))
 barra_formula = ttk.Scrollbar(cuadro_formula)
-cuadro_formula.column("#0", width=100, anchor="center")
-cuadro_formula.column("Deposito", width=30, anchor="center")
-cuadro_formula.column("Cantidad", width=30, anchor="center")
+cuadro_formula.column("#0", width=130, anchor="center")
+cuadro_formula.column("Deposito", width=20, anchor="center")
+cuadro_formula.column("Cantidad", width=20, anchor="center")
 cuadro_formula.column("Registro", width=30, anchor="center")
 cuadro_formula.heading("#0", text="Materia Prima")
 cuadro_formula.heading("Deposito", text="Deposito")
@@ -260,8 +294,8 @@ cuadro_formula.heading("Cantidad", text="Cantidad")
 cuadro_formula.heading("Registro", text="Registro")
 cuadro_formula.config(yscrollcommand=barra.set)
 barra_formula.config(command=cuadro.yview)
-cuadro_formula.place(relx=0.15, rely=0.4, relwidth=0.7, relheight=0.5)
-barra_formula.place(relx=0.948, rely=0.11, relheight=0.87)
+cuadro_formula.place(relx=0.05, rely=0.4, relwidth=0.9, relheight=0.5)
+barra_formula.place(relx=0.964, rely=0.11, relheight=0.87)
 
 label_nombre_formula = ttk.Label(pestaña_formula, text="Formula")
 label_mp_formula = ttk.Label(pestaña_formula, text="Materia Prima")
@@ -274,23 +308,29 @@ label_nombre_formula.place(relx=0.01, rely=0.01)
 label_mp_formula.place(relx=0.23, rely=0.09)
 label_entrada_deposito_for.place(relx=0.01, rely=0.09)
 label_cantidad.place(relx=0.52, rely=0.09)
-label_sector.place(relx=0.45, rely=0.01)
+label_sector.place(relx=0.35, rely=0.01)
 
-entrada_nombre_for = ttk.Entry(pestaña_formula, width=33)
-entrada_mp_for = ttk.Combobox(pestaña_formula, width=20)
-entrada_deposito_for = ttk.Combobox(pestaña_formula, width=10)
+entrada_nombre_for = ttk.Entry(pestaña_formula, width=25)
+entrada_mp_for = ttk.Combobox(pestaña_formula, width=20, state="readonly")
+entrada_deposito_for = ttk.Combobox(pestaña_formula, width=10, state="readonly")
 entrada_deposito_for.bind("<<ComboboxSelected>>", partial(seleccionar_deposito))
-entrada_cantidad_for = ttk.Entry(pestaña_formula, width=10)
+entrada_cantidad_for = ttk.Entry(pestaña_formula, width=10,validate="key",
+                           validatecommand=((pestaña_formula.register(validar_entrada)), "%S"))
 
-selec_sector = ttk.Combobox(pestaña_formula, width=15)
+selec_sector = ttk.Combobox(pestaña_formula, width=15,state="readonly")
 entrada_nombre_for.place(relx=0.12, rely=0.01)
 entrada_mp_for.place(relx=0.33, rely=0.09)
 entrada_deposito_for.place(relx=0.12, rely=0.09)
 entrada_cantidad_for.place(relx=0.6, rely=0.09)
-selec_sector.place(relx=0.51, rely=0.01)
+selec_sector.place(relx=0.4, rely=0.01)
 
-selec_formula = ttk.Combobox(pestaña_formula, width=15)
+selec_formula = ttk.Combobox(pestaña_formula, width=15,state="readonly")
 selec_formula.place(relx=0.01, rely=0.17)
+entrada_codigo_for = ttk.Entry(pestaña_formula, width=20)
+entrada_codigo_for.place(relx=0.7, rely=0.01)
+label_cod = ttk.Label(pestaña_formula, text="Cod. Formula")
+label_cod.place(relx=0.6, rely=0.01)
+
 leer_archivo()
 leer_base()
 ventana.mainloop()

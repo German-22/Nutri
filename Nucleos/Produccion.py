@@ -81,8 +81,7 @@ def calcular(x):
         messagebox.showinfo(message="COMPLETE LOS CAMPOS", title="Error")
         return
     formula = str(combobox.get())
-    ndebatch = int(entrada_ndebatch.get())+ndebatch_anterior
-    
+    ndebatch = int(entrada_ndebatch.get())+ndebatch_anterior    
     
     mp = []
     dep = []    
@@ -473,6 +472,34 @@ def validar_entrada_cod(numero):
     except:
         return True          
     
+def selec_formula(s,sector):
+    if s=="prod":
+        lote = entrada_lote_juliano.get()
+        if lote == "":
+            messagebox.showinfo(message="Ingrese el Lote", title="Error")
+            return
+        formula = combobox.get()
+        conexion=sqlite3.connect(entrada_ruta_bd.get())
+        a = conexion.execute("""SELECT codfor FROM formulas WHERE nombre = ?;""", (formula,))         
+        b = a.fetchall()
+        entrada_cod_produccion["state"] = ["enable"]
+        entrada_cod_produccion.delete(0,"end")
+        entrada_cod_produccion.insert(0,str(b[0][0]) + lote )
+        entrada_cod_produccion["state"] = ["readonly"]
+    if s == "carga":
+        lote = entrada_lote_juliano_carga.get()
+        if lote == "":
+            messagebox.showinfo(message="Ingrese el Lote", title="Error")
+            return
+        formula = combobox_carga.get()
+        conexion=sqlite3.connect(entrada_ruta_bd.get())
+        a = conexion.execute("""SELECT codfor FROM formulas WHERE nombre = ?;""", (formula,))         
+        b = a.fetchall()
+        entrada_cod_prod_car["state"] = ["enable"]
+        entrada_cod_prod_car.delete(0,"end")
+        entrada_cod_prod_car.insert(0,str(b[0][0]) + lote + "C" )
+        entrada_cod_prod_car["state"] = ["readonly"]
+
 def cerrar():
     ventana.destroy
     sys.exit()
@@ -498,7 +525,11 @@ entrada_ruta_bd.place(relx=0.27, rely=0.14)
 boton_ruta_bd = ttk.Button(pestaña_config, text="Config. Ruta", command=selecionar_ruta)
 boton_ruta_bd.place(relx=0.8, rely=0.14)
 label_codigo = ttk.Label(pestaña_prod, text="Codigo de Produccion")
-label_codigo.place(relx=0.01, rely=0.01)
+label_codigo.place(relx=0.01, rely=0.2)
+label_lote_juliano = ttk.Label(pestaña_prod, text="Lote Juliano")
+label_lote_juliano.place(relx=0.01, rely=0.01)
+label_lote_juliano_carga = ttk.Label(pestaña_carga, text="Lote Juliano")
+label_lote_juliano_carga.place(relx=0.01, rely=0.01)
 label_formula = ttk.Label(pestaña_prod, text="Seleccionar Formula")
 label_formula.place(relx=0.01, rely=0.07)
 label_ndebatch = ttk.Label(pestaña_prod, text="N° de Batch")
@@ -522,12 +553,17 @@ combobox_mp.bind("<<ComboboxSelected>>", partial(selec_materiaprima))
 entrada_cantidad = ttk.Entry(pestaña_prod, width=20,validate="key",
                            validatecommand=((pestaña_prod.register(validar_entrada)), "%S"))
 entrada_cantidad.place(relx=0.5, rely=0.19)
-entrada_cod_produccion = ttk.Entry(pestaña_prod, width=20,validate="key",
+entrada_cod_produccion = ttk.Entry(pestaña_prod, width=20)
+entrada_cod_produccion.place(relx=0.1, rely=0.2)
+entrada_lote_juliano = ttk.Entry(pestaña_prod, width=20,validate="key",
                            validatecommand=((pestaña_prod.register(validar_entrada_cod)), "%S"))
-entrada_cod_produccion.place(relx=0.1, rely=0.01)
-
+entrada_lote_juliano.place(relx=0.1, rely=0.01)
+entrada_lote_juliano_carga = ttk.Entry(pestaña_carga, width=20,validate="key",
+                           validatecommand=((pestaña_prod.register(validar_entrada_cod)), "%S"))
+entrada_lote_juliano_carga.place(relx=0.1, rely=0.01)
 combobox = ttk.Combobox(pestaña_prod, width=30)
 combobox.place(relx=0.1, rely=0.07)
+combobox.bind("<<ComboboxSelected>>", partial(selec_formula,"prod"))
 entrada_ndebatch= ttk.Entry(pestaña_prod, width=10,validate="key",
                            validatecommand=((pestaña_prod.register(validar_entrada)), "%S"))
 entrada_ndebatch.place(relx=0.1, rely=0.13)
@@ -593,16 +629,16 @@ boton_agregar_carga.place(relx=0.27, rely=0.07)
 boton_finalizar_carga = ttk.Button(pestaña_carga, text="Finalizar", command= partial(finalizar,"carga"))
 boton_finalizar_carga.place(relx=0.35, rely=0.1,relheight = 0.07)
 label_codigo_carga = ttk.Label(pestaña_carga, text="Codigo de Produccion")
-label_codigo_carga.place(relx=0.01, rely=0.01)
+label_codigo_carga.place(relx=0.01, rely=0.25)
 label_formula_carga = ttk.Label(pestaña_carga, text="Seleccionar Formula")
 label_formula_carga.place(relx=0.01, rely=0.07)
 label_ndebatch_carga = ttk.Label(pestaña_carga, text="N° de Batch")
 label_ndebatch_carga.place(relx=0.01, rely=0.13)
-entrada_cod_prod_car = ttk.Entry(pestaña_carga, width=20,validate="key",
-                           validatecommand=((pestaña_carga.register(validar_entrada_cod)), "%S"))
-entrada_cod_prod_car.place(relx=0.1, rely=0.01)
+entrada_cod_prod_car = ttk.Entry(pestaña_carga, width=20)
+entrada_cod_prod_car.place(relx=0.1, rely=0.25)
 combobox_carga = ttk.Combobox(pestaña_carga, width=30)
 combobox_carga.place(relx=0.1, rely=0.07)
+combobox_carga.bind("<<ComboboxSelected>>", partial(selec_formula,"carga"))
 entrada_ndebatch_carga= ttk.Entry(pestaña_carga, width=10,validate="key",
                            validatecommand=((pestaña_carga.register(validar_entrada)), "%S"))
 entrada_ndebatch_carga.place(relx=0.1, rely=0.13)
