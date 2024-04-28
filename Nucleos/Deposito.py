@@ -1,3 +1,4 @@
+import tkinter as tk
 from tkinter import *
 from tkinter import ttk,messagebox, filedialog
 import sqlite3
@@ -102,7 +103,7 @@ def crear_pdf():
     observacion = str(entrada_obs.get())
     presentacion = entrada_presentacion.get()
         
-    c = canvas.Canvas(str(entrada_ruta_registro.get()) + "/" + str(mp) + str(fecha) + str(remito) + ".pdf")
+    c = canvas.Canvas(str(entrada_ruta_registro.get()) + "/" + str(fecha) + "-" + str(mp)+ "-" + str(lote)+ "-" + str(remito) + ".pdf")
     x = 50
     y = 50
     d = 40
@@ -149,6 +150,8 @@ def seleccionar_deposito(s):
         messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
 
 def recepcionar():
+    for s in cuadro.get_children():
+            cuadro.delete(s)
     mp = selec_mp.get()
     cantidad = (entrada_cantidad.get())
     vto = entrada_vto.get()
@@ -170,6 +173,12 @@ def recepcionar():
 
     if mp!="" and cantidad != "" and vto != "" and lote!="" and deposito != "" and remito != "" and marca != "" and proveedor != "" and protocolo != "" and chofer != "" and transporte != "" and patente != "" and habilitacion != "" and estado_transporte != "" and estado_carga != "" and responsable_deposito != "" and presentacion != "":
         fecha = (entrada_fecha.get())
+        try:
+            float(cantidad)
+        except:
+            messagebox.showinfo(message="Error en Cantidad", title="Error")
+            return
+
         if len(vto)==10 and len(fecha)==10 :
             dia = vto[0:2]
             mes = vto[3:5]
@@ -187,25 +196,32 @@ def recepcionar():
                 return
             try:
                 conexion=sqlite3.connect(entrada_ruta.get())
+                a = conexion.execute("""SELECT * FROM recepcion WHERE mp = ? and lote = ? and nderemito = ?;""",(mp, lote,remito))
+                b = a.fetchall()
+                if b != []:                    
+                    messagebox.showinfo(message="Esta Materia Prima ya Esta Recepcionada", title="Registro Duplicado")
+                    for i in b:                        
+                        cuadro.insert("", tk.END, text=i[1],
+                                values=(i[2],i[3],i[7],i[6],i[8],i[20]))
+                    conexion.close()
+                    return                   
+            except:
+                messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
+                return
+            try:
+                conexion=sqlite3.connect(entrada_ruta.get())
                 conexion.execute("""insert into recepcion (fecha,mp,lote,vto,cantidad,deposito,nderemito,presentacion,marca,proveedor,protocolo,chofer,transporte,patente,habilitacion,estado_transporte,estado_carga,observacion,responsabledeposito)
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);""",(fecha, mp, lote,vto,float(cantidad),deposito,remito,presentacion,marca,proveedor,protocolo,chofer,transporte, patente,habilitacion,estado_transporte,estado_carga,observacion,responsable_deposito))
                 conexion.commit()
-                a = conexion.execute("""SELECT stock FROM stock WHERE mp = ? and lote = ?;""",(mp, lote))
-                b = a.fetchone()        
-                
-                if b == None:
-                    conexion.execute("""insert into stock (mp,deposito,lote,stock,stocksim,vto)
-                    VALUES(?,?,?,?,?,?);""",(mp,deposito,lote,float(cantidad),float(cantidad),vto))
-                    conexion.commit()         
-                else:       
-                    stock = (float((b)[0])) + float(cantidad)                   
-                    conexion.execute("""UPDATE stock SET stock = ? WHERE mp = ? and lote = ?;""",(stock,mp,lote))
-                    conexion.commit()                
                 conexion.close()
+                cuadro.insert("", tk.END, text=fecha,
+                                values=(mp,lote,deposito,cantidad,remito,responsable_deposito))
             except:
                 messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
+                return
             try:
                 crear_pdf()
+                messagebox.showinfo(message="Registrado", title="Registrado")
             except:
                 messagebox.showinfo(message="Error al Crear Registro", title="Error de Conexion")
         else:
@@ -226,22 +242,22 @@ def validar_entrada(numero):
 def validar_entrada_cantidad(numero):        
     try:
         int(numero)
-        return True
+        if len(entrada_cantidad.get()) == 0:
+            if int(numero) == 0:
+                return False
+            else:
+                return True        
+        else:
+            return True
     except:
         if numero == ".":
             return True
         else:
-            return False
-
-def validar_entrada_remito(numero):     
-    if numero != "/":
-        return True
-    else:
-        return False       
+            return False   
 
 def validar_entrada_lote(numero):
     try:
-        if numero == " ":
+        if numero == " " or numero == "/":
             return False
         if len(entrada_lote.get()) == 0:
             if int(numero) == 0:
@@ -256,12 +272,14 @@ def seleccionar_mp(s):
     conexion=sqlite3.connect(entrada_ruta.get())
     mp = selec_mp.get()
     a = conexion.execute("""SELECT codmp FROM mp WHERE mp = ? ;""", (mp,))
+    mostrar_codigo["state"] = ["enable"]
     mostrar_codigo.delete(0,"end")
-    mostrar_codigo.insert(0,a.fetchall())        
+    mostrar_codigo.insert(0,a.fetchall())    
+    mostrar_codigo["state"] = ["disable"]    
     conexion.close()
 
 ventana = Tk()
-ventana.geometry("800x650")
+ventana.geometry("1000x650")
 ventana.title("Deposito")
 tab_control = ttk.Notebook(ventana, width=800, height=650)
 tab_control.place(x=0, y=0, relheight=1, relwidth=1)
@@ -294,7 +312,7 @@ label_remito.place(relx=0.01, rely=0.35)
 
 entrada_ruta_registro = ttk.Entry(pestaña_conf, width= 60)
 entrada_ruta = ttk.Entry(pestaña_conf, width= 60)
-selec_mp = ttk.Combobox(pestaña_recepcion, width=20,state="readonly")
+selec_mp = ttk.Combobox(pestaña_recepcion, width=40,state="readonly")
 selec_mp.bind("<<ComboboxSelected>>", partial(seleccionar_mp))
 entrada_fecha = ttk.Entry(pestaña_recepcion, width= 30,validate="key",
                       validatecommand=((pestaña_recepcion.register(validar_entrada)), "%S"))
@@ -304,14 +322,14 @@ entrada_vto = ttk.Entry(pestaña_recepcion, width=30,validate="key",validatecomm
 entrada_cantidad = ttk.Entry(pestaña_recepcion, width=30,validate="key",validatecommand=((pestaña_recepcion.register(validar_entrada_cantidad)),"%S"))
 selec_deposito = ttk.Combobox(pestaña_recepcion, width=30,state="readonly")
 selec_deposito.bind("<<ComboboxSelected>>", partial(seleccionar_deposito))
-entrada_remito = ttk.Entry(pestaña_recepcion, width=30,validate="key",validatecommand=((pestaña_recepcion.register(validar_entrada_remito)),"%S"))
+entrada_remito = ttk.Entry(pestaña_recepcion, width=30,validate="key",validatecommand=((pestaña_recepcion.register(validar_entrada_lote)),"%S"))
 
 entrada_ruta_registro.place(relx=0.27, rely=0.3)
 entrada_ruta.place(relx=0.27, rely=0.7)
 entrada_fecha.place(relx=0.15, rely=0.05)
 selec_mp.place(relx=0.15, rely=0.15)
-mostrar_codigo = ttk.Entry(pestaña_recepcion, width=10)
-mostrar_codigo.place(relx=0.35, rely=0.15)
+mostrar_codigo = ttk.Entry(pestaña_recepcion, width=15)
+mostrar_codigo.place(relx=0.42, rely=0.15)
 entrada_lote.place(relx=0.15, rely=0.25)
 entrada_vto.place(relx=0.15, rely=0.30)
 entrada_cantidad.place(relx=0.15, rely=0.20)
@@ -337,9 +355,9 @@ label_estadot.place(relx=0.55, rely=0.40)
 label_estadoc = ttk.Label(pestaña_recepcion, text="Estado de Carga")
 label_estadoc.place(relx=0.01, rely=0.40)
 label_responsable = ttk.Label(pestaña_recepcion, text="Responsable")
-label_responsable.place(relx=0.01, rely=0.60)
+label_responsable.place(relx=0.01, rely=0.45)
 label_observ = ttk.Label(pestaña_recepcion, text="Observaciones")
-label_observ.place(relx=0.5, rely=0.6)
+label_observ.place(relx=0.55, rely=0.55)
 label_presentacion = ttk.Label(pestaña_recepcion, text="Presentacion")
 label_presentacion.place(relx=0.55, rely=0.45)
 
@@ -362,19 +380,35 @@ entrada_estadot.place(relx=0.7, rely=0.40)
 entrada_estadoc = ttk.Entry(pestaña_recepcion, width=30)
 entrada_estadoc.place(relx=0.15, rely=0.4)
 entrada_resp = ttk.Entry(pestaña_recepcion, width=30)
-entrada_resp.place(relx=0.15, rely=0.60)
+entrada_resp.place(relx=0.15, rely=0.45)
 entrada_obs = ttk.Entry(pestaña_recepcion, width=30)
-entrada_obs.place(relx=0.65, rely=0.6,relheight=0.1)
+entrada_obs.place(relx=0.7, rely=0.55,relheight=0.1)
 entrada_presentacion = ttk.Entry(pestaña_recepcion, width=30)
 entrada_presentacion.place(relx=0.7, rely=0.45)
-
 
 configurar_ruta = ttk.Button(pestaña_conf,command = partial(selecionar_ruta,"bd"),text="Conf. Ruta")
 configurar_ruta.place(relx=0.8, rely=0.7)
 configurar_ruta_registro = ttk.Button(pestaña_conf,command = partial(selecionar_ruta,"registro"),text="Conf. Ruta")
 configurar_ruta_registro.place(relx=0.8, rely=0.3)
-recepcionar_mp = ttk.Button(pestaña_recepcion,command=recepcionar,text="Recepcionar",)
-recepcionar_mp.place(relx=0.4, rely=0.8, relheight=0.1)
+recepcionar_mp = ttk.Button(pestaña_recepcion,command=recepcionar,text="Recepcionar")
+recepcionar_mp.place(relx=0.2, rely=0.55, relheight=0.11,relwidth=0.15)
+cuadro = ttk.Treeview(pestaña_recepcion, columns=("MP","Lote","Deposito","Cantidad","N° Remito","Responsable"))
+cuadro.column("#0", width=80, anchor="center")
+cuadro.column("MP", width=30, anchor="center")
+cuadro.column("Lote", width=30, anchor="center")
+cuadro.column("Deposito", width=10, anchor="center")
+cuadro.column("Cantidad", width=10, anchor="center")
+cuadro.column("N° Remito", width=10, anchor="center")
+cuadro.column("Responsable", width=10, anchor="center")
+
+cuadro.heading("#0", text="Fecha")
+cuadro.heading("MP", text="MP")
+cuadro.heading("Lote", text="Lote")
+cuadro.heading("Deposito", text="Deposito")
+cuadro.heading("Cantidad", text="Cantidad")
+cuadro.heading("N° Remito", text="N° de Remito")
+cuadro.heading("Responsable", text="Responsable")
+cuadro.place(relx=0.01, rely=0.7, relwidth=0.95, relheight=0.2)
 
 leer_archivo()
 leer_base()

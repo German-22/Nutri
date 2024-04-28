@@ -61,7 +61,7 @@ def calcular(x):
         else:
             conexion.execute("""DELETE FROM simulacion WHERE codprod = ? and estado = "simulado";""", (entrada_cod_produccion.get(),)) 
             conexion.commit()
-            a = conexion.execute("""SELECT ndebatch FROM simulacion WHERE codprod = ? and estado = "programado" ORDER BY ndebatch desc;""",(entrada_cod_produccion.get(),))  
+            a = conexion.execute("""SELECT ndebatch FROM simulacion WHERE codprod = ? and estado != "finalizado" ORDER BY ndebatch desc;""",(entrada_cod_produccion.get(),))  
             b = a.fetchall()
             ndebatch_anterior = b[0][0]
             conexion.close()            
@@ -71,6 +71,7 @@ def calcular(x):
             conexion.commit()
             conexion.close()
         else:
+            print(b)
             messagebox.showinfo(message="ESTA PRODUCCION YA ESTA PROGRAMADA", title="Error")
             return
     global sector    
@@ -146,6 +147,9 @@ def calcular(x):
             m = 0
             parcial = False
             entero = False          
+            if dic_stock[i]==[]:
+                messagebox.showinfo(message="No Hay stock de" + " " + i , title="Stock Insuficiente") 
+                continue
             cant = float(dic_stock[i][m])
             conexion=sqlite3.connect(entrada_ruta_bd.get())   
             while n<ndebatch:                    
@@ -215,19 +219,30 @@ def calcular(x):
                             conexion.commit() 
                             cant = cant - cantidad[k]
             k = k + 1               
-        conexion.close()      
+        conexion.close()   
+           
     except:
         messagebox.showinfo(message="Error en Calculo", title="Error")
-
+    buscar("nucleos")
+    return
 def nuevo(sec):            
-    if  sec == "nucleos":
-        codprod = entrada_cod_produccion.get()
-        formula = combobox.get()
+    if  sec == "nucleos":        
+        codprod = entrada_cod_produccion.get()        
         ndebatch = entrada_ndebatch.get()
-        if codprod == "" or formula =="" or ndebatch=="":
+        if codprod == "" or ndebatch=="":
             messagebox.showinfo(message="Complete los Campos", title="Error")
             return
         conexion=sqlite3.connect(entrada_ruta_bd.get())       
+        a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and estado = "simulado";""",(entrada_cod_produccion.get(),))         
+        b = a.fetchall()  
+        if b == []:
+            return
+        formula = b[0][2]        
+        for i in b:  
+            r = conexion.execute("""SELECT * FROM stock WHERE mp = ? and lote = ? and deposito = ? ;""",(i[3],i[5],i[4]))         
+            f = r.fetchall()                 
+            conexion.execute("""UPDATE stock SET stocksim = ? WHERE mp = ? and lote = ? and deposito = ?;""",(f[0][4]-i[6],f[0][0],f[0][2],f[0][1]))
+            conexion.commit()             
         a = conexion.execute("""SELECT sector FROM formulas WHERE nombre = ?;""",(formula,))
         b = a.fetchall() 
         sector = b[0][0]
@@ -240,16 +255,9 @@ def nuevo(sec):
         else:
             conexion.execute("""UPDATE producciones set ndebatch = ? WHERE codprod = ?;""",(int(b[0][0])+ int(entrada_ndebatch.get()), codprod))
             conexion.commit() 
-        conexion.execute("""UPDATE simulacion SET estado = "programado" WHERE codprod = ?;""",(codprod,))
+        conexion.execute("""UPDATE simulacion SET estado = "programado" WHERE codprod = ? and estado != "cargado" ;""",(codprod,))
         conexion.commit()
-        a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? ;""",(entrada_cod_produccion.get(),))         
-        b = a.fetchall()  
-        for i in b:  
-            r = conexion.execute("""SELECT * FROM stock WHERE mp = ? and lote = ? and deposito = ? ;""",(i[3],i[5],i[4]))         
-            f = r.fetchall()                 
-            conexion.execute("""UPDATE stock SET stocksim = ? WHERE mp = ? and lote = ? and deposito = ?;""",(f[0][4]-i[6],f[0][0],f[0][2],f[0][1]))
-            conexion.commit()             
-        conexion.close()      
+        conexion.close()
         buscar("nucleos")
 
     if sec == "carga":
@@ -261,13 +269,15 @@ def nuevo(sec):
             return
         conexion=sqlite3.connect(entrada_ruta_bd.get())        
         a = conexion.execute("""SELECT ndebatch FROM producciones WHERE codprod = ?;""",(codprod,))
-        b = a.fetchall()    
-        if b == []:
+        b = a.fetchall()
+        
+        if b == []:            
             conexion.execute("""insert into producciones (codprod,formula,sector,ndebatch,estado)
                 VALUES(?,?,?,?,?);""",(codprod, formula, sector, entrada_ndebatch_carga.get(),"programado"))
             conexion.commit() 
         else:
-            conexion.execute("""UPDATE producciones set ndebatch = ? WHERE codprod = ?;""",(int(b[0][0])+ int(entrada_ndebatch.get()), codprod))
+            
+            conexion.execute("""UPDATE producciones set ndebatch = ? WHERE codprod = ?;""",(int(b[0][0])+ int(entrada_ndebatch_carga.get()), codprod))
             conexion.commit()             
         conexion.close()      
         buscar("carga")
@@ -298,18 +308,14 @@ def buscar(sec):
 def eliminar(sec):
     if sec == "nucleos":
         codprod = cuadro.item(cuadro.selection())["text"]   
-        conexion=sqlite3.connect(entrada_ruta_bd.get())
+        conexion=sqlite3.connect(entrada_ruta_bd.get())        
+        a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ?;""",(codprod,))         
+        b = a.fetchall()         
+        if b[0][9] == "programado":      
+            messagebox.showinfo(message="Esta Produccion ya Esta Programada, No se Puede Eliminar. Solo se puede Finalizar", title="Error")
+            return 
         conexion.execute("""DELETE FROM producciones WHERE codprod = ?;""", (codprod,))
         conexion.commit()
-        a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ?;""",(codprod,))         
-        b = a.fetchall()    
-     
-        if b[0][9] == "programado":      
-            for i in b:
-                r = conexion.execute("""SELECT * FROM stock WHERE mp = ? and lote = ? and deposito = ?  and estado = "liberado";""", (i[3],i[5],i[4]))         
-                f = r.fetchall()        
-                conexion.execute("""UPDATE stock SET stocksim = ? WHERE mp = ? and lote = ? and deposito = ?;""",(f[0][4]+i[6],i[3],i[5],i[4]))
-                conexion.commit()
         conexion.execute("""DELETE FROM simulacion WHERE codprod = ?;""", (codprod,))
         conexion.commit()
         conexion.close()    
@@ -323,7 +329,8 @@ def eliminar(sec):
         buscar("carga")
 
 def actualizar():
-    id = cuadro.item(cuadro.selection())["values"][8]  
+    
+    id = cuadro.item(cuadro.selection())["values"][8]      
     mp = combobox_mp.get()
     deposito = combobox_depo.get()
     cantidad = entrada_cantidad.get()
@@ -411,21 +418,25 @@ def finalizar(sec):
         conexion.commit()
         a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ?;""",(codprod,))         
         b = a.fetchall()          
-        for i in b:
-            r = conexion.execute("""SELECT * FROM stock WHERE mp = ? and lote = ? and deposito = ?  and estado = "liberado";""", (i[3],i[5],i[4]))         
-            f = r.fetchall()  
+        for i in b:            
+            r = conexion.execute("""SELECT * FROM stock WHERE mp = ? and lote = ? and deposito = ?;""", (i[3],i[5],i[4]))         
+            f = r.fetchall() 
+            if f == []:   
+                messagebox.showinfo(message="Hay un Error en BD", title="Error")
+                return
             if f[0][3] <= 0:      
                 estado = "agotado"
             else:
                 estado = "liberado"
             conexion.execute("""UPDATE stock SET stocksim = ? , estado = ? WHERE mp = ? and lote = ? and deposito = ?;""",(f[0][3],estado,i[3],i[5],i[4]))
             conexion.commit()
+        
         conexion.execute("""UPDATE simulacion SET estado = "finalizado" WHERE codprod = ?;""", (codprod,))
         conexion.commit()
         conexion.close()
         buscar("nucleos")
     if sec == "carga":
-        codprod = cuadro.item(cuadro.selection())["text"]   
+        codprod = cuadro_carga.item(cuadro_carga.selection())["text"]   
         conexion=sqlite3.connect(entrada_ruta_bd.get())
         conexion.execute("""UPDATE producciones SET estado = "finalizado" WHERE codprod = ?;""", (codprod,))
         conexion.commit()        
@@ -463,28 +474,49 @@ def validar_entrada(numero):
 def validar_entrada_cod(numero):
     try:
         int(numero)
-        if len(entrada_cod_produccion.get()) == 0:
+        if len(entrada_lote_juliano.get()) == 0:
             if int(numero) == 0:
                 return False
             else:
                 return True
-        return True
+        else:
+            return True
     except:
-        return True          
+        return True   
+
+def validar_entrada_cod_c(numero):
+    try:
+        int(numero)
+        if len(entrada_lote_juliano_carga.get()) == 0:
+            if int(numero) == 0:
+                return False
+            else:
+                return True
+        else:
+            return True
+    except:
+        return True       
     
 def selec_formula(s,sector):
     if s=="prod":
+        codprod = cuadro.item(cuadro.selection())["text"]
+        if codprod != "":
+            entrada_cod_produccion["state"] = ["enable"]
+            entrada_cod_produccion.delete(0,"end")
+            entrada_cod_produccion.insert(0,codprod)
+            entrada_cod_produccion["state"] = ["readonly"]
+            return
         lote = entrada_lote_juliano.get()
         if lote == "":
             messagebox.showinfo(message="Ingrese el Lote", title="Error")
             return
         formula = combobox.get()
         conexion=sqlite3.connect(entrada_ruta_bd.get())
-        a = conexion.execute("""SELECT codfor FROM formulas WHERE nombre = ?;""", (formula,))         
+        a = conexion.execute("""SELECT * FROM formulas WHERE nombre = ?;""", (formula,))         
         b = a.fetchall()
         entrada_cod_produccion["state"] = ["enable"]
         entrada_cod_produccion.delete(0,"end")
-        entrada_cod_produccion.insert(0,str(b[0][0]) + lote )
+        entrada_cod_produccion.insert(0,str(b[0][2]) + lote + str(b[0][1][0]) + str(b[0][1][-1]))
         entrada_cod_produccion["state"] = ["readonly"]
     if s == "carga":
         lote = entrada_lote_juliano_carga.get()
@@ -559,7 +591,7 @@ entrada_lote_juliano = ttk.Entry(pestaña_prod, width=20,validate="key",
                            validatecommand=((pestaña_prod.register(validar_entrada_cod)), "%S"))
 entrada_lote_juliano.place(relx=0.1, rely=0.01)
 entrada_lote_juliano_carga = ttk.Entry(pestaña_carga, width=20,validate="key",
-                           validatecommand=((pestaña_prod.register(validar_entrada_cod)), "%S"))
+                           validatecommand=((pestaña_prod.register(validar_entrada_cod_c)), "%S"))
 entrada_lote_juliano_carga.place(relx=0.1, rely=0.01)
 combobox = ttk.Combobox(pestaña_prod, width=30)
 combobox.place(relx=0.1, rely=0.07)
@@ -609,7 +641,7 @@ boton_agregar.place(relx=0.27, rely=0.19)
 boton_finalizar = ttk.Button(pestaña_prod, text="Finalizar", command = partial (finalizar,"nucleos"))
 boton_finalizar.place(relx=0.9, rely=0.04,relheight = 0.1)
 cuadro_carga = ttk.Treeview(pestaña_carga, columns=("Formula","N° de Batch"))
-barra = ttk.Scrollbar(cuadro)
+
 cuadro_carga.column("#0", width=20, anchor="center")
 cuadro_carga.column("Formula", width=80, anchor="center")
 cuadro_carga.column("N° de Batch", width=10, anchor="center")

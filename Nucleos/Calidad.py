@@ -12,6 +12,8 @@ ruta_txt = "/archnucl"
 import sys
 sector = ""
 dic_res_stock = {}
+copia = 0
+
 def leer_archivo():
     bd = la.Leer_archivo("archivo_bd.txt")   
     archivo_bd = bd.leer()
@@ -41,9 +43,7 @@ def leer_base():
         a = conexion.execute("""SELECT DISTINCT lote FROM recepcion;""") 
         lote['values'] = list(a)
         a = conexion.execute("""SELECT DISTINCT proveedor FROM recepcion;""") 
-        proveedor['values'] = list(a)
-        a = conexion.execute("""SELECT DISTINCT marca FROM recepcion;""") 
-        marca['values'] = list(a)
+        proveedor['values'] = list(a)       
         conexion.close()        
     except:
         messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
@@ -63,8 +63,7 @@ def selecionar_ruta():
     except:
         messagebox.showinfo(message="Error al Configurar la Ruta", title="Ruta Erronea")
      
-def buscar(r,e):
-    
+def buscar(r,e):    
     if r == "fecha":
         b = fecha.get()
     if r == "nderemito":
@@ -75,8 +74,8 @@ def buscar(r,e):
         b = lote.get()
     elif r == "proveedor":
         b = proveedor.get()
-    elif r == "marca":
-        b = marca.get()   
+    elif r == "protocolo":
+        b = protocolo.get()   
     elif r == "id":
         b = e    
     elif r == "estado":
@@ -88,25 +87,44 @@ def buscar(r,e):
     b = a.fetchall()  
     for i in b:
         cuadro.insert("", tk.END, text=i[0],
-                            values=(i[1],i[2],i[3],i[4],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[12],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[29],i[30],i[31]))
+                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31]))
     conexion.close()
 
 def liberar():
     id = cuadro.item(cuadro.selection())["text"]
     mp = cuadro.item(cuadro.selection())["values"][1]
-    deposito = cuadro.item(cuadro.selection())["values"][6]
+    deposito = cuadro.item(cuadro.selection())["values"][5]
     lote = cuadro.item(cuadro.selection())["values"][2]
     respon = entrada_responsable.get()
+    cantidad = cuadro.item(cuadro.selection())["values"][4]
+    vto = cuadro.item(cuadro.selection())["values"][3]
     if respon == "":
         messagebox.showinfo(message="Ingrese Responsable", title="Error")
         return   
-    conexion=sqlite3.connect(entrada_ruta_bd.get())
-    conexion.execute("""UPDATE recepcion SET estado = "liberado" , responsablecalidad = ? WHERE id = ?;""",(respon, id))
-    conexion.commit()
-    conexion.execute("""UPDATE stock SET estado = "liberado" WHERE mp = ? and deposito = ? and lote = ?;""",(mp,deposito,lote))
-    conexion.commit()
-    conexion.close()     
-    buscar("id",id) 
+    try:
+        conexion=sqlite3.connect(entrada_ruta_bd.get())
+        conexion.execute("""UPDATE recepcion SET estado = "liberado" , responsablecalidad = ? WHERE id = ?;""",(respon, id))
+        conexion.commit()
+        a = conexion.execute("""SELECT * FROM stock WHERE mp = ? and lote = ?;""",(mp, lote))
+        b = a.fetchone()                
+        if b == None:
+            conexion.execute("""insert into stock (mp,deposito,lote,stock,stocksim,vto,estado)
+            VALUES(?,?,?,?,?,?,?);""",(mp,deposito,lote,float(cantidad),float(cantidad),vto,"liberado"))
+            conexion.commit()         
+        else:                  
+            stock = (float(b[3])) + float(cantidad)
+            stocksim = (float(b[4])) + float(cantidad) 
+            conexion.execute("""UPDATE stock SET stock = ?,stocksim = ?, estado = "liberado"  WHERE mp = ? and lote = ? and deposito = ?;""",(stock,stocksim,mp,lote,deposito))
+            conexion.commit()     
+        conexion.close()     
+        lista = cuadro.item(cuadro.selection())["values"]
+        lista[29]="liberado"
+        lista[20]=str(entrada_responsable.get())
+        cuadro.item(cuadro.selection(),values=lista)
+    except:
+        messagebox.showinfo(message="Error al Conectar BD", title="Error")
+        conexion.close()
+        return
 
 def verificar():
     id = cuadro.item(cuadro.selection())["text"]
@@ -118,39 +136,49 @@ def verificar():
     conexion.execute("""UPDATE recepcion SET estado = "verificado", resver = ? WHERE id = ?;""",(respon,id))
     conexion.commit()
     conexion.close()     
-    buscar("id",id) 
+    lista = cuadro.item(cuadro.selection())["values"]
+    lista[30]=str(entrada_responsable.get())
+    lista[29]="verificado"
+    cuadro.item(cuadro.selection(),values=lista)
 
 def cargar():
     id = cuadro.item(cuadro.selection())["text"]
-    fecha_elab = entrada_fechaelb.get()
-    revision = entrada_revision.get()
-    organo = entrada_organ.get()
-    fis = entrada_fisic.get()
-    confisic = entrada_confis.get()
-    qui = entrada_conqui.get()
-    micro = entrada_micro.get()
-    responsable = entrada_responsable.get()  
-    rotulo = entrada_rotulo.get()
-    otro = entrada_otros.get()
-    conexion=sqlite3.connect(entrada_ruta_bd.get())
-    conexion.execute("""UPDATE recepcion SET fechaelaboracion=?,etrevision=?,rotulo=?,organolep=?,fisicoqui=?,contfisico=?,contquimico=?,contmicro=?,responsablecalidad=?, otros = ? WHERE id = ?;""",(fecha_elab,revision,rotulo,organo,fis,confisic,qui,micro,responsable,otro,id))
-    conexion.commit()
-    conexion.close()     
-    buscar("id",id) 
+    if id != "":
+        lista = [entrada_pro.get(),entrada_fechaelb.get(),entrada_responsable.get(),entrada_revision.get(),entrada_rotulo.get(),entrada_organ.get(),entrada_fisic.get(),entrada_confis.get(),
+                entrada_conqui.get(),entrada_micro.get(),entrada_otros.get()]
+        lista2 = ["protocolo","fechaelaboracion","responsablecalidad","etrevision","rotulo","organolep","fisicoqui","contfisico","contquimico","contmicro","otros"]
+        
+        conexion=sqlite3.connect(entrada_ruta_bd.get())
+        e = 0        
+        for i in lista2:           
+            if lista[e] != "":                
+                conexion.execute("""UPDATE recepcion SET %s = ? WHERE id = ?;""" %i,(lista[e],id))
+                conexion.commit()
+            e = e + 1
+        conexion.close()   
+        lista3 = cuadro.item(cuadro.selection())["values"]
+        e = 18
+        for i in lista:           
+            if i!= "":
+               lista3[e]=i 
+            e = e + 1                   
+        cuadro.item(cuadro.selection(),values=lista3)         
+    else:
+        messagebox.showinfo(message="Seleccione un Elemento", title="Error")        
 
 def exportar():       
+    global copia
     ruta = entrada_ruta_registro.get()
-    with open(ruta + "/" + 'reporte.csv', 'w', newline='') as f:       
+    with open(ruta + "/" + "reporte" + str(copia) +".csv", 'w', newline='') as f:       
         writer = csv.writer(f,delimiter=';') 
         guardar = ["Fecha","MP","Lote","Fecha de Elaboracion","Vto","Cantidad", "Deposito", "N° de Remito","Presentacion" ,"Marca","Proveedor","Protocolo","Chofer","Transporte","Patente","Habilitacion","Estado del Transporte","Estado de Carga","Observacion","Responsable Deposito","Responsable Calidad","ET Revision","Rotulo","Caracteristicas Organolepticas", "Fisicoquimicas","Contaminantes Fisicos","Contaminantes Quimicos","Contaminantes Micro", "Estado","Otros Datos","Responsable Verificacion"]
         writer.writerow(guardar)        
         for i in cuadro.get_children():
-            guardar.clear()           
-              
+            guardar.clear()                   
             for t in cuadro.item(i)["values"]:
                 guardar.append(t)
             writer.writerow(guardar)    
-    
+        copia =+1
 def cerrar():
     ventana.destroy
     sys.exit()
@@ -187,14 +215,14 @@ def selecionar_ruta(s):
 
 def eliminar():
     id = cuadro.item(cuadro.selection())["text"]
-    mp = cuadro.item(cuadro.selection())["values"][1]
-    deposito = cuadro.item(cuadro.selection())["values"][6]
-    lote = cuadro.item(cuadro.selection())["values"][2]
+    #mp = cuadro.item(cuadro.selection())["values"][1]
+    #deposito = cuadro.item(cuadro.selection())["values"][6]
+    #lote = cuadro.item(cuadro.selection())["values"][2]
     conexion=sqlite3.connect(entrada_ruta_bd.get())
     conexion.execute("""DELETE FROM recepcion WHERE id = ?;""",(id,))
     conexion.commit()
-    conexion.execute("""DELETE FROM stock WHERE mp = ? and deposito = ? and lote = ?;""",(mp,deposito,lote))
-    conexion.commit()
+    ##conexion.execute("""DELETE FROM stock WHERE mp = ? and deposito = ? and lote = ?;""",(mp,deposito,lote))
+    #conexion.commit()
     conexion.close()  
     cuadro.delete(cuadro.selection())   
 
@@ -212,7 +240,10 @@ def retener():
     conexion.execute("""UPDATE stock SET estado = "retenido" WHERE mp = ? and lote = ?;""",(b[0][2],b[0][3]))
     conexion.commit()
     conexion.close()     
-    buscar("id",id) 
+    lista = cuadro.item(cuadro.selection())["values"]
+    lista[29]="retener"
+    lista[20]=str(entrada_responsable.get())
+    cuadro.item(cuadro.selection(),values=lista)
 
 def revalidar():
     id = cuadro.item(cuadro.selection())["text"]
@@ -232,10 +263,13 @@ def revalidar():
     conexion.commit()
     a = conexion.execute("""SELECT * FROM recepcion WHERE id = ?;""",(id,))
     b = a.fetchall()
-    conexion.execute("""UPDATE stock SET vto = ? WHERE mp = ? and lote = ?;""",(rev,b[0][2],b[0][3]))
+    conexion.execute("""UPDATE stock SET vto = ?, estado = "liberado" WHERE mp = ? and lote = ?;""",(rev,b[0][2],b[0][3]))
     conexion.commit()
     conexion.close()     
-    buscar("id",id) 
+    lista = cuadro.item(cuadro.selection())["values"]
+    lista[29]=str(rev +" revalidado")
+    lista[20]=str(entrada_responsable.get())
+    cuadro.item(cuadro.selection(),values=lista) 
 
 def validar_entrada(numero):        
     try:
@@ -246,7 +280,47 @@ def validar_entrada(numero):
             return True
         else:
             return False
-        
+
+def busqueda_mp(letra):
+    for s in cuadro.get_children():
+            cuadro.delete(s)
+    conexion=sqlite3.connect(entrada_ruta_bd.get())
+    a = conexion.execute("""SELECT * FROM recepcion;""")
+    b = a.fetchall() 
+    for i in b:
+        if mp.get() in str(i[2]).lower():
+            cuadro.insert("", tk.END, text=i[0],
+                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31]))
+    conexion.close()
+    return True
+
+def busqueda_lote(letra):
+    for s in cuadro.get_children():
+            cuadro.delete(s)
+    conexion=sqlite3.connect(entrada_ruta_bd.get())
+    a = conexion.execute("""SELECT * FROM recepcion;""")
+    b = a.fetchall() 
+    for i in b:
+        if lote.get() in str(i[3]).lower():
+            cuadro.insert("", tk.END, text=i[0],
+                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31]))
+    conexion.close()
+    return True
+
+def busqueda_remito(letra):
+    for s in cuadro.get_children():
+            cuadro.delete(s)
+    conexion=sqlite3.connect(entrada_ruta_bd.get())
+    a = conexion.execute("""SELECT * FROM recepcion;""")
+    b = a.fetchall() 
+    for i in b:
+        if nderemito.get() in str(i[8]).lower():
+            cuadro.insert("", tk.END, text=i[0],
+                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31]))
+    conexion.close()
+    return True
+
+
 ventana = Tk()
 ventana.protocol("WM_DELETE_WINDOW", cerrar)
 ventana.geometry("1500x800")
@@ -266,6 +340,7 @@ entrada_ruta_bd = ttk.Entry(pestaña_config, width=80)
 entrada_ruta_bd.place(relx=0.27, rely=0.14)
 boton_ruta_bd = ttk.Button(pestaña_config, text="Config. Ruta", command=lambda: selecionar_ruta("bd"))
 boton_ruta_bd.place(relx=0.8, rely=0.14)
+
 label_fecha = ttk.Label(pestaña_prod, text="Fecha")
 label_fecha.place(relx=0.01, rely=0.01)
 label_mp = ttk.Label(pestaña_prod, text="Materia Prima")
@@ -276,8 +351,8 @@ label_lote = ttk.Label(pestaña_prod, text="Lote")
 label_lote.place(relx=0.01, rely=0.22)
 label_prov = ttk.Label(pestaña_prod, text="Proveedor")
 label_prov.place(relx=0.01, rely=0.29)
-label_marca = ttk.Label(pestaña_prod, text="Marca")
-label_marca.place(relx=0.01, rely=0.36)
+label_protocolo = ttk.Label(pestaña_prod, text="Protocolo")
+label_protocolo.place(relx=0.01, rely=0.36)
 label_fechaelab = ttk.Label(pestaña_prod, text="Fecha de Elaboracion")
 label_fechaelab.place(relx=0.4, rely=0.01)
 label_revision = ttk.Label(pestaña_prod, text="ET/Revision")
@@ -302,6 +377,9 @@ entrada_otros= ttk.Entry(pestaña_prod, width=20)
 entrada_otros.place(relx=0.75, rely=0.02,height=60)
 label_revalida = ttk.Label(pestaña_prod, text="Vto.Revalida")
 label_revalida.place(relx=0.85, rely=0.2)
+label_pro = ttk.Label(pestaña_prod, text="Protocolo")
+label_pro.place(relx=0.4, rely=0.46)
+
 
 entrada_revalida= ttk.Entry(pestaña_prod, width=20,validate="key",validatecommand=((pestaña_prod.register(validar_entrada)),"%S"))
 entrada_revalida.place(relx=0.9, rely=0.2)
@@ -321,38 +399,41 @@ entrada_conqui = ttk.Entry(pestaña_prod, width=30)
 entrada_conqui.place(relx=0.55, rely=0.31)
 entrada_micro = ttk.Entry(pestaña_prod, width=30)
 entrada_micro.place(relx=0.55, rely=0.36)
+entrada_pro = ttk.Combobox(pestaña_prod,state="readonly",values=["Falta_Protocolo","Papel", "Digital"])
+entrada_pro.place(relx=0.55, rely=0.46)
 entrada_responsable = ttk.Entry(pestaña_prod, width=30)
 entrada_responsable.place(relx=0.55, rely=0.41)
 
 fecha = ttk.Combobox(pestaña_prod, width=40, state="readonly")
 fecha.place(relx=0.11, y=10)
 fecha.bind("<<ComboboxSelected>>", partial(buscar,"fecha"))
-mp = ttk.Combobox(pestaña_prod, width=40,state="readonly")
+mp = ttk.Combobox(pestaña_prod, width=40,validate="key",validatecommand=((pestaña_prod.register(busqueda_mp)),"%S"))
 mp.place(relx=0.11, rely=0.08)
 mp.bind("<<ComboboxSelected>>", partial(buscar,"mp"))
-nderemito = ttk.Combobox(pestaña_prod, width=40,state="readonly")
+nderemito = ttk.Combobox(pestaña_prod, width=40,validate="key",validatecommand=((pestaña_prod.register(busqueda_remito)),"%S"))
 nderemito.place(relx=0.11, rely=0.15)
 nderemito.bind("<<ComboboxSelected>>", partial(buscar,"nderemito"))
-lote = ttk.Combobox(pestaña_prod, width=40, state="readonly")
+lote = ttk.Combobox(pestaña_prod, width=40, validate="key",validatecommand=((pestaña_prod.register(busqueda_lote)),"%S"))
 lote.place(relx=0.11, rely=0.22)
 lote.bind("<<ComboboxSelected>>", partial(buscar,"lote"))
 proveedor = ttk.Combobox(pestaña_prod, width=40,state="readonly")
 proveedor.place(relx=0.11, rely=0.29)
 proveedor.bind("<<ComboboxSelected>>", partial(buscar,"proveedor"))
-marca = ttk.Combobox(pestaña_prod, width=40,state="readonly")
-marca.place(relx=0.11, rely=0.36)
-marca.bind("<<ComboboxSelected>>", partial(buscar,"marca"))
+protocolo = ttk.Combobox(pestaña_prod, width=40,state="readonly",values=["Falta_Protocolo","Papel", "Digital"])
+protocolo.place(relx=0.11, rely=0.36)
+protocolo.bind("<<ComboboxSelected>>", partial(buscar,"protocolo"))
 estado = ttk.Combobox(pestaña_prod, width=40,state="readonly" ,values=["pendiente","liberado","verificado","retenido"])
 estado.place(relx=0.11, rely=0.42)
 estado.bind("<<ComboboxSelected>>", partial(buscar,"estado"))
 label_estado = ttk.Label(pestaña_prod, text="Estado")
 label_estado.place(relx=0.01, rely=0.42)
-cuadro = ttk.Treeview(pestaña_prod, columns=("Fecha","MP","Lote","Fecha de Elaboracion","Vto","Cantidad", "Deposito", "N° de Remito","Presentacion" , "Marca","Proveedor","Protocolo","Chofer","Transporte","Patente","Habilitacion","Estado del Transporte","Estado de Carga","Observacion","Responsable Deposito","Responsable Calidad","ET Revision","Rotulo","Caracteristicas Organolepticas", "Fisicoquimicas","Contaminantes Fisicos","Contaminantes Quimicos","Contaminantes Micro", "Estado","Otros","Responsable Verificacion"))
+
+cuadro = ttk.Treeview(pestaña_prod, columns=("Fecha","MP","Lote","Vto","Cantidad", "Deposito", "N° de Remito","Presentacion" , "Marca","Proveedor","Chofer","Transporte","Patente","Habilitacion","Estado del Transporte","Estado de Carga","Observacion","Responsable Deposito","Protocolo","Fecha de Elaboracion","Responsable Calidad","ET Revision","Rotulo","Caracteristicas Organolepticas", "Fisicoquimicas","Contaminantes Fisicos","Contaminantes Quimicos","Contaminantes Micro","Otros", "Estado","Responsable Verificacion"))
 cuadro.column("#0",anchor="center")
 cuadro.column("Fecha",anchor="center")
 cuadro.column("MP", anchor="center")
 cuadro.column("Lote", anchor="center")
-cuadro.column("Fecha de Elaboracion", width=100, anchor="center")
+
 cuadro.column("Vto", anchor="center")
 cuadro.column("Cantidad",anchor="center")
 cuadro.column("Deposito",anchor="center")
@@ -360,7 +441,7 @@ cuadro.column("N° de Remito", anchor="center")
 cuadro.column("Presentacion",  anchor="center")
 cuadro.column("Marca", anchor="center")
 cuadro.column("Proveedor", anchor="center")
-cuadro.column("Protocolo", anchor="center")
+
 cuadro.column("Chofer", anchor="center")
 cuadro.column("Transporte",  anchor="center")
 cuadro.column("Patente", anchor="center")
@@ -369,9 +450,11 @@ cuadro.column("Estado del Transporte",  anchor="center")
 cuadro.column("Estado de Carga" ,anchor="center")
 cuadro.column("Observacion",  anchor="center")
 cuadro.column("Responsable Deposito",  anchor="center")
+cuadro.column("Protocolo", anchor="center")
+cuadro.column("Fecha de Elaboracion", width=100, anchor="center")
 cuadro.column("Responsable Calidad",  anchor="center")
 
-cuadro.column("Observacion", anchor="center")
+
 cuadro.column("ET Revision",anchor="center")
 cuadro.column("Rotulo",anchor="center")
 cuadro.column("Caracteristicas Organolepticas", anchor="center")
@@ -379,14 +462,14 @@ cuadro.column("Fisicoquimicas",  anchor="center")
 cuadro.column("Contaminantes Fisicos", anchor="center")
 cuadro.column("Contaminantes Quimicos", anchor="center")
 cuadro.column("Contaminantes Micro",  anchor="center")
-cuadro.column("Estado", anchor="center")
 cuadro.column("Otros", anchor="center")
+cuadro.column("Estado", anchor="center")
 cuadro.column("Responsable Verificacion", anchor="center")
 cuadro.heading("#0", text="Id")
 cuadro.heading("Fecha", text="Fecha")
 cuadro.heading("MP", text="MP")
 cuadro.heading("Lote", text="Lote")
-cuadro.heading("Fecha de Elaboracion", text="Fecha de Elaboracion")
+
 cuadro.heading("Vto", text="Vto")
 cuadro.heading("Cantidad", text="Cantidad")
 cuadro.heading("Deposito", text="Deposito")
@@ -394,7 +477,7 @@ cuadro.heading("N° de Remito", text="N° de Remito")
 cuadro.heading("Presentacion", text="Presentacion")
 cuadro.heading("Marca", text="Marca")
 cuadro.heading("Proveedor", text="Proveedor")
-cuadro.heading("Protocolo", text="Protocolo")
+
 cuadro.heading("Chofer", text="Chofer")
 cuadro.heading("Transporte", text="Transporte")
 cuadro.heading("Patente", text="Patente")
@@ -403,6 +486,8 @@ cuadro.heading("Estado del Transporte", text="Estado del Transporte")
 cuadro.heading("Estado de Carga", text="Estado de Carga")
 cuadro.heading("Observacion", text="Observacion")
 cuadro.heading("Responsable Deposito", text="Responsable Deposito")
+cuadro.heading("Protocolo", text="Protocolo")
+cuadro.heading("Fecha de Elaboracion", text="Fecha de Elaboracion")
 cuadro.heading("Responsable Calidad", text="Responsable Calidad")
 cuadro.heading("ET Revision", text="ET Revision")
 cuadro.heading("Rotulo", text="Rotulo")
@@ -411,8 +496,9 @@ cuadro.heading("Fisicoquimicas", text="Fisicoquimicas")
 cuadro.heading("Contaminantes Fisicos", text="Contaminantes Fisicos")
 cuadro.heading("Contaminantes Quimicos", text="Contaminantes Quimicos")
 cuadro.heading("Contaminantes Micro", text="Contaminantes Micro")
-cuadro.heading("Estado", text="Estado")
 cuadro.heading("Otros", text="Otros")
+cuadro.heading("Estado", text="Estado")
+
 cuadro.heading("Responsable Verificacion", text="Responsable Verificacion")
 
 

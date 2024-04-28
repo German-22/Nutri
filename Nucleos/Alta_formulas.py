@@ -6,6 +6,7 @@ from functools import partial
 import Leer_archivo as la 
 ruta_txt = "/archnucl"
 
+
 def leer_archivo():
     bd = la.Leer_archivo("archivo_bd.txt")   
     archivo_bd = bd.leer()
@@ -48,27 +49,27 @@ def alta_insumo():
     a = entrada_mp.get()
     deposito = entrada_deposito.get().upper()
     codigo = entrada_codigo.get()    
-    try:
-        if a != "":
-            for i in a:
-                if i ==" ":
-                    mp = mp + "_"
-                else:
-                    mp = mp + i           
-        conexion=sqlite3.connect(entrada_ruta.get())    
-        a = conexion.execute("""SELECT * FROM depositos WHERE deposito = ?;""",(deposito,))
-        b = a.fetchall()
-        if b == []:
-            conexion.execute("""insert into depositos (deposito)
-            VALUES(?);""",(deposito,))
-            conexion.commit()         
-        conexion.execute("""insert into mp (mp,deposito,codmp)
-        VALUES(?,?,?);""",(mp,deposito,codigo))
-        conexion.commit()                     
-        conexion.close()    
-        buscar()
-    except:
-        messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
+    #try:
+    if a != "":
+        for i in a:
+            if i ==" ":
+                mp = mp + "_"
+            else:
+                mp = mp + i           
+    conexion=sqlite3.connect(entrada_ruta.get())    
+    a = conexion.execute("""SELECT * FROM depositos WHERE deposito = ?;""",(deposito,))
+    b = a.fetchall()
+    if b == []:
+        conexion.execute("""insert into depositos (deposito)
+        VALUES(?);""",(deposito,))
+        conexion.commit()         
+    conexion.execute("""insert into mp (mp,deposito,codmp)
+    VALUES(?,?,?);""",(mp,deposito,codigo))
+    conexion.commit()                     
+    conexion.close()    
+    buscar()
+    #except:
+    #    messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
 
 def alta_formula():  
         nom_for = ""
@@ -122,8 +123,13 @@ def agregar_insumo():
         conexion=sqlite3.connect(entrada_ruta.get())
         a = conexion.execute("""SELECT * FROM formulas WHERE nombre = ?;""",(nom_for,))
         b = a.fetchall()    
-
-        if b != []:
+    except:
+            messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error al Conectar con Base de Datos")
+            conexion.close()
+            return
+        
+    if b != []:
+        try:
             d = conexion.execute("""SELECT codmp FROM mp WHERE mp = ?;""",(mp,))
             e = d.fetchall()   
             conexion.execute("""insert into %s (mp,deposito,cantidad,sector,formula,codfor,codmp)
@@ -131,12 +137,14 @@ def agregar_insumo():
             conexion.commit()                  
             conexion.close()
             buscar_formula()
-        else:
-            messagebox.showinfo(message="La Formula no Existe", title="Error al Conectar con Base de Datos")
+        except:
+            messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error al Conectar con Base de Datos")
             conexion.close()
-    except:
-             messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error al Conectar con Base de Datos")
-
+            return
+    else:
+        messagebox.showinfo(message="La Formula no Existe", title="Error al Conectar con Base de Datos")
+        conexion.close()
+    
 def eliminar_insumo():
     nom_for = entrada_nombre_for.get()
     try:
@@ -187,7 +195,7 @@ def buscar_formula():
         for s in cuadro_formula.get_children():
             cuadro_formula.delete(s)
         for i in a:
-            cuadro_formula.insert("", j, text=i[0], values=(i[1],i[2],i[4]))
+            cuadro_formula.insert("", j, text=i[0], values=(i[1],i[2],i[3]))
             j +=1               
         conexion.close()
     except:
@@ -214,6 +222,13 @@ def validar_entrada(numero):
             return True
         else:
             return False
+        
+def validar_entrada_nom(numero):        
+    if numero != "." and numero != "*" and numero != "," and numero != "+" and numero != "/":
+        return True
+    else:
+        return False
+            
 
 def cerrar():
     ventana.destroy()
@@ -243,7 +258,7 @@ label_entrada_deposito.place(relx=0.35, rely=0.1)
 label_codigo.place(relx=0.6, rely=0.1)
 
 entrada_ruta = ttk.Entry(pestaña_conf, width= 60)
-entrada_mp = ttk.Entry(pestaña_insumo, width=25)
+entrada_mp = ttk.Entry(pestaña_insumo, width=25,validate="key",validatecommand=((pestaña_insumo.register(validar_entrada_nom)),"%S"))
 entrada_deposito = ttk.Entry(pestaña_insumo, width=15)
 entrada_codigo = ttk.Entry(pestaña_insumo, width=10)
 entrada_ruta.place(relx=0.27, rely=0.7)
@@ -291,7 +306,7 @@ cuadro_formula.column("Registro", width=30, anchor="center")
 cuadro_formula.heading("#0", text="Materia Prima")
 cuadro_formula.heading("Deposito", text="Deposito")
 cuadro_formula.heading("Cantidad", text="Cantidad")
-cuadro_formula.heading("Registro", text="Registro")
+cuadro_formula.heading("Registro", text="Sector")
 cuadro_formula.config(yscrollcommand=barra.set)
 barra_formula.config(command=cuadro.yview)
 cuadro_formula.place(relx=0.05, rely=0.4, relwidth=0.9, relheight=0.5)
@@ -310,7 +325,8 @@ label_entrada_deposito_for.place(relx=0.01, rely=0.09)
 label_cantidad.place(relx=0.52, rely=0.09)
 label_sector.place(relx=0.35, rely=0.01)
 
-entrada_nombre_for = ttk.Entry(pestaña_formula, width=25)
+entrada_nombre_for = ttk.Entry(pestaña_formula, width=25,validate="key",
+                           validatecommand=((pestaña_formula.register(validar_entrada_nom)), "%S"))
 entrada_mp_for = ttk.Combobox(pestaña_formula, width=20, state="readonly")
 entrada_deposito_for = ttk.Combobox(pestaña_formula, width=10, state="readonly")
 entrada_deposito_for.bind("<<ComboboxSelected>>", partial(seleccionar_deposito))
