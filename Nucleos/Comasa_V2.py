@@ -184,7 +184,7 @@ def formula_seleccionada(event,sector):
     if event == "nucleos":
         try:
             conexion=sqlite3.connect(entrada_ruta_bd.get())
-            a = conexion.execute("""SELECT * FROM simulacion WHERE formula = ? and estado = "programado";""" ,(combobox.get(),))         
+            a = conexion.execute("""SELECT * FROM simulacion WHERE formula = ?;""" ,(combobox.get(),))         
             b = a.fetchall()
             cod['state'] = ['enable']
             cod.delete(0,"end")
@@ -192,12 +192,14 @@ def formula_seleccionada(event,sector):
             cod['state'] = ['disable']
             a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and estado = "programado";""" ,(b[0][1],))         
             b = a.fetchall()
-            for s in cuadro.get_children():
-                cuadro.delete(s)
-            for i in b:
-                cuadro.insert("", tk.END, text=i[8], values=(i[3],i[5],i[6],i[4]))
-                                              
-            conexion.close()
+            if b == []:
+                messagebox.showinfo(message="Se Fraccionaron Todas las MP de Esta Produccion", title="Fraccionado Finalizado")
+            else:
+                for s in cuadro.get_children():
+                    cuadro.delete(s)
+                for i in b:
+                    cuadro.insert("", tk.END, text=i[8], values=(i[3],i[5],i[6],i[4]))                                              
+                conexion.close()
         except:
               messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
     if event == "macro":
@@ -295,8 +297,10 @@ def mp_seleccionada(w,e):
                 cantidad = cuadro_macro.item(cuadro_macro.selection())["values"][1]
                 deposito = cuadro_macro.item(cuadro_macro.selection())["values"][3] 
                 lote = cuadro_macro.item(cuadro_macro.selection())["values"][2]       
-            except:
-                return    
+            except:                 
+                messagebox.showinfo(message="Seleccione una Materia Prima", title="ERROR") 
+                return
+                 
             
             conexion=sqlite3.connect(entrada_ruta_bd.get())
             a = conexion.execute("""SELECT * FROM stock WHERE  mp = ? and estado = "liberado";""", (MP_seleccionada_macro,))         
@@ -410,8 +414,6 @@ def actualizar_nucleos():
         messagebox.showinfo(message="Error de Conexion", title="Error")
     return
 
-
-
 def registrar(cantidad,nuevo_stock):
     try:
         codprod = cod.get()
@@ -450,13 +452,21 @@ def sin_balanza(sec):
         hora = time.strftime("%H:%M:%S")
         Deposito = cuadro.item(cuadro.selection())["values"][3]        
         formula = combobox.get()   
-        if nuevo_stock>0:     
+        if nuevo_stock>=0:     
             registrar(cantidad,nuevo_stock) 
         else:
             messagebox.showinfo(message="No hay stock de este lote", title="ERROR")
 
     if (sec == "macro"):
-        MP_seleccionada_macro = cuadro_macro.item(cuadro_macro.selection())["values"][0]
+        selecccion = cuadro_macro.item(cuadro_macro.selection())["values"]        
+        if selecccion == "":
+            messagebox.showinfo(message="Seleccione una Materia Prima", title="ERROR") 
+            return
+        
+        if cantidad_pesar_macro.get() == "":
+            messagebox.showinfo(message="Ingrese la Cantidad ", title="ERROR") 
+            return
+        MP_seleccionada_macro = selecccion[0]
         lote = combobox_lote_macro.get()
         codprod = cod_macro.get()
         cantidad = float(cantidad_pesar_macro.get())       
@@ -465,37 +475,42 @@ def sin_balanza(sec):
         Deposito = cuadro_macro.item(cuadro_macro.selection())["values"][3]        
         formula = combobox_macro.get()      
         nuevo_stock = stock - cantidad
-        try:
-            conexion=sqlite3.connect(entrada_ruta_bd.get())
-            if sector_macro == "Macro_Comasa":
-                conexion.execute("""insert into %s (codprod,fecha,hora,mp,deposito,lote,vto,cantidad,responsable,sector,formula,comentario)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?);"""%sector_macro,(codprod,fecha, hora, MP_seleccionada_macro, Deposito, lote,vto,cantidad,responsable_macro.get(),sector_macro,formula,comentario_macro.get()))
+        if nuevo_stock>=0:
+            try:
+                conexion=sqlite3.connect(entrada_ruta_bd.get())
+                if sector_macro == "Macro_Comasa":
+                    cant_sim = cuadro_macro.item(cuadro_macro.selection())["values"]
+                    if float(cant_sim[1]) - cantidad >= 0:
+                        conexion.execute("""insert into %s (codprod,fecha,hora,mp,deposito,lote,vto,cantidad,responsable,sector,formula,comentario)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?);"""%sector_macro,(codprod,fecha, hora, MP_seleccionada_macro, Deposito, lote,vto,cantidad,responsable_macro.get(),sector_macro,formula,comentario_macro.get()))
+                        conexion.commit()
+                        a = conexion.execute("""SELECT last_insert_rowid() FROM Macro_Comasa;""")
+                        b = a.fetchall()                
+                        id = (b[0][0])
+                        cuadro_macro2.insert("", tk.END, text=fecha,
+                        values=(hora,id,MP_seleccionada_macro, cantidad, lote,vto, Deposito))       
+                    
+                        conexion.execute("""UPDATE simulacion SET cantidad = ? WHERE codprod = ? and mp = ? and lote = ?;""",(float(cant_sim[1]) - cantidad,codprod,MP_seleccionada_macro,lote))
+                        conexion.commit()            
+                        cant_sim[1] = float(cant_sim[1]) - cantidad
+                        cuadro_macro.item(cuadro_macro.selection(),values=cant_sim)    
+                    else:
+                        messagebox.showinfo(message="No hay stock de este lote", title="ERROR") 
+                else:                    
+                    conexion.execute("""insert into %s (codprod,ndebatch,fecha,hora,mp,deposito,lote,vto,cantidad,responsable,sector,formula,comentario)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?);"""%sector_macro,(codprod,ndebatch_macro.get(),fecha, hora, MP_seleccionada_macro, Deposito, lote,vto,cantidad,responsable_macro.get(),sector_macro,formula,comentario_macro.get()))
+                    conexion.commit()
+                    cuadro_macro2.insert("", tk.END, text=fecha,
+                        values=(hora,ndebatch_macro.get(),MP_seleccionada_macro, cantidad, lote,vto, Deposito))       
+                conexion.execute("""UPDATE stock SET stock = ? WHERE mp = ? and lote = ?;""",(nuevo_stock,MP_seleccionada_macro,lote))
                 conexion.commit()
-                a = conexion.execute("""SELECT last_insert_rowid() FROM Macro_Comasa;""")
-                b = a.fetchall()                
-                id = (b[0][0])
-                cuadro_macro2.insert("", tk.END, text=fecha,
-                    values=(hora,id,MP_seleccionada_macro, cantidad, lote,vto, Deposito))       
-                cant_sim = cuadro_macro.item(cuadro_macro.selection())["values"]
-                
-                conexion.execute("""UPDATE simulacion SET cantidad = ? WHERE codprod = ? and mp = ? and lote = ?;""",(float(cant_sim[1]) - cantidad,codprod,MP_seleccionada_macro,lote))
-                conexion.commit()            
-                cant_sim[1] = float(cant_sim[1]) - cantidad
-                cuadro_macro.item(cuadro_macro.selection(),values=cant_sim)    
-
-            else:                    
-                conexion.execute("""insert into %s (codprod,ndebatch,fecha,hora,mp,deposito,lote,vto,cantidad,responsable,sector,formula,comentario)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?);"""%sector_macro,(codprod,ndebatch_macro.get(),fecha, hora, MP_seleccionada_macro, Deposito, lote,vto,cantidad,responsable_macro.get(),sector_macro,formula,comentario_macro.get()))
-                conexion.commit()
-                cuadro_macro2.insert("", tk.END, text=fecha,
-                    values=(hora,ndebatch_macro.get(),MP_seleccionada_macro, cantidad, lote,vto, Deposito))       
-
-            conexion.execute("""UPDATE stock SET stock = ? WHERE mp = ? and lote = ?;""",(nuevo_stock,MP_seleccionada_macro,lote))
-            conexion.commit()
+                conexion.close()
+            except:
+                messagebox.showinfo(message="Error al Conectar con BD", title="Error")  
             conexion.close()
-        except:
-            messagebox.showinfo(message="Error al Conectar con BD", title="Error")  
-        conexion.close()
+        else:
+            messagebox.showinfo(message="No hay stock de este lote", title="ERROR") 
+
     return
 
 
@@ -534,7 +549,7 @@ def con_balanza(t):
                 peso_mostrar = peso_balanza[4] + peso_balanza[5] + peso_balanza[6] + peso_balanza[7] + peso_balanza[8] + peso_balanza[9]  
                 cantidad = float(peso_mostrar)
                 nuevo_stock = stock - cantidad
-                if nuevo_stock > 0:
+                if nuevo_stock >= 0:
                     registrar(cantidad,nuevo_stock)                                               
                 else:    
                     messagebox.showinfo(message="No hay stock de este lote", title="ERROR")
@@ -544,7 +559,7 @@ def con_balanza(t):
         else:
             cantidad = float(peso_balanza[1:7])
             nuevo_stock = stock - cantidad
-            if nuevo_stock > 0:                
+            if nuevo_stock >= 0:                
                 registrar(cantidad, nuevo_stock)              
                              
             else:    
@@ -567,7 +582,6 @@ def pesar(sector):
         try:    
             conexion=sqlite3.connect(entrada_ruta_bd.get())            
             a = conexion.execute("""SELECT * FROM stock WHERE  mp = ? and lote = ? and estado = "liberado" ;""", (MP_seleccionada,lote))         
-            
             b = a.fetchall()[0]
             vto = b[5]
             stock = float(b[3])
@@ -596,9 +610,18 @@ def pesar(sector):
                     messagebox.showinfo(message="INGRESE EL RESPONSABLE", title="ERROR")
         else:
             messagebox.showinfo(message="La Materia Prima Esta Vencida", title="Materia Prima Vencida")
-        
-        
+                
     if (sector == "macro"):
+        seleccion = cuadro_macro.item(cuadro_macro.selection())["values"]        
+        if seleccion == "":
+            messagebox.showinfo(message="Seleccione una Materia Prima", title="ERROR") 
+            return
+        
+        if cantidad_pesar_macro.get() == "":
+            messagebox.showinfo(message="Ingrese la Cantidad ", title="ERROR") 
+            return
+
+        MP_seleccionada_macro = seleccion[0]
         lote_macro = combobox_lote_macro.get()
         conexion=sqlite3.connect(entrada_ruta_bd.get())
         a = conexion.execute("""SELECT * FROM stock WHERE  mp = ? and lote = ? and estado = "liberado" ;""", (MP_seleccionada_macro,lote_macro))         
