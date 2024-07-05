@@ -162,8 +162,12 @@ def busqueda_mp(letra):
     for s in cuadro.get_children():
             cuadro.delete(s)
     conexion=sqlite3.connect(entrada_ruta_bd.get())
-    a = conexion.execute("""SELECT * FROM stock;""")
-    b = a.fetchall() 
+    if check_nulos_value.get()==False:
+        a = conexion.execute("""SELECT * FROM stock where stock != ? ;""",(0,))
+        b = a.fetchall()
+    else:
+        a = conexion.execute("""SELECT * FROM stock;""")
+        b = a.fetchall() 
     for i in b:
         if combobox.get() in str(i[0]).lower():
             cuadro.insert("", tk.END, text=i[0],values=(i[2],i[5],i[3],i[1],i[6]))
@@ -174,8 +178,12 @@ def busqueda_lote(letra):
     for s in cuadro.get_children():
             cuadro.delete(s)
     conexion=sqlite3.connect(entrada_ruta_bd.get())
-    a = conexion.execute("""SELECT * FROM stock;""")
-    b = a.fetchall() 
+    if check_nulos_value.get()==False:
+        a = conexion.execute("""SELECT * FROM stock where stock != ? ;""",(0,))
+        b = a.fetchall()
+    else:
+        a = conexion.execute("""SELECT * FROM stock;""")
+        b = a.fetchall() 
     for i in b:
         if combobox_lote.get() in str(i[2]).lower():
             cuadro.insert("", tk.END, text=i[0],values=(i[2],i[5],i[3],i[1],i[6]))
@@ -233,7 +241,11 @@ cuadro.heading("Stock", text="Stock")
 cuadro.heading("Deposito", text="Deposito")
 cuadro.heading("Estado", text="Estado")
 barra = ttk.Scrollbar(cuadro,orient=tk.VERTICAL)
+check_nulos_value = tk.BooleanVar()
+check_nulos = ttk.Checkbutton(pestaña_prod, text="Mostrar Stock Cero",variable=check_nulos_value)
 
+
+check_nulos.place(relx=0.5, rely=0.1)
 cuadro.config(yscrollcommand=barra.set)
 barra.config(command=cuadro.yview)
 cuadro.place(relx=0.01, rely=0.5, relwidth=0.98, relheight=0.5)

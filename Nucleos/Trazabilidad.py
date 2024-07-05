@@ -44,6 +44,8 @@ def buscar(s):
         try:      
             sector = cuadro2.item(cuadro2.selection())["values"][1]
             codprod = cuadro2.item(cuadro2.selection())["text"]
+            if sector == "Carga_Comasa" or sector == "Carga_Cereales" or sector == "Carga_jarabe":
+                sector = "registro_carga"
         except:
             messagebox.showinfo(message="Seleccione una Produccion", title="Error")
             return
@@ -56,12 +58,17 @@ def buscar(s):
         if sector == "Macro_Comasa":    
             for i in b:
                 cuadro.insert("", tk.END, text=i[1],
-                                    values=(i[11],i[2],i[3],"-",i[4],i[6],i[7],i[5],i[8],i[9],i[12]))
+                                    values=(i[11],i[2],i[3],"-",i[4],i[6],i[7],i[5],i[8],i[9],i[12],"-","-"))
+            conexion.close()
+        elif sector == "registro_carga": 
+            for i in b:
+                cuadro.insert("", tk.END, text=i[3],
+                                    values=(i[6],i[1],i[2],i[4],"-","-","-","-","-","-","-",i[5],i[8]))
             conexion.close()
         else:
             for i in b:
                 cuadro.insert("", tk.END, text=i[0],
-                                    values=(i[11],i[2],i[3],i[1],i[4],i[6],i[7],i[5],i[8],i[9],i[12]))
+                                    values=(i[11],i[2],i[3],i[1],i[4],i[6],i[7],i[5],i[8],i[9],i[12],"-","-"))
             conexion.close()
     if s == "mp":
 
@@ -221,7 +228,7 @@ formula = ttk.Combobox(pestaña_prod, width=40)
 formula.place(relx=0.07, rely=0.01)
 formula.bind("<<ComboboxSelected>>", partial(buscar_formula))
 
-cuadro = ttk.Treeview(pestaña_prod, columns=("Formula","Fecha","Hora","N° de Batch","MP","Lote","Vto","Deposito","Cantidad","Responsable","Comentario"))
+cuadro = ttk.Treeview(pestaña_prod, columns=("Formula","Fecha","Hora","N° de Batch","MP","Lote","Vto","Deposito","Cantidad","Responsable","Comentario","N° Nucleo","Cod_Nucleo"))
 cuadro.column("#0", width=20, anchor="center")
 cuadro.column("Formula", width=20, anchor="center")
 cuadro.column("Fecha", width=20, anchor="center")
@@ -234,6 +241,8 @@ cuadro.column("Deposito", width=30, anchor="center")
 cuadro.column("Cantidad", width=30, anchor="center")
 cuadro.column("Responsable", width=30, anchor="center")
 cuadro.column("Comentario", width=30, anchor="center")
+cuadro.column("N° Nucleo", width=30, anchor="center")
+cuadro.column("Cod_Nucleo", width=30, anchor="center")
 cuadro.heading("#0", text="CodigoProd")
 cuadro.heading("Formula", text="Formula")
 cuadro.heading("Fecha", text="Fecha")
@@ -246,6 +255,8 @@ cuadro.heading("Deposito", text="Deposito")
 cuadro.heading("Cantidad", text="Cantidad")
 cuadro.heading("Responsable", text="Responsable")
 cuadro.heading("Comentario", text="Comentario")
+cuadro.heading("N° Nucleo", text="N° Nucleo")
+cuadro.heading("Cod_Nucleo", text="Cod_Nucleo")
 
 barra = ttk.Scrollbar(cuadro)
 cuadro.config(yscrollcommand=barra.set)

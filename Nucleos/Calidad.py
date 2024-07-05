@@ -98,8 +98,13 @@ def liberar():
     respon = entrada_responsable.get()
     cantidad = cuadro.item(cuadro.selection())["values"][4]
     vto = cuadro.item(cuadro.selection())["values"][3]
+    estado = cuadro.item(cuadro.selection())["values"][29]
+    
     if respon == "":
         messagebox.showinfo(message="Ingrese Responsable", title="Error")
+        return   
+    if estado != "pendiente":
+        messagebox.showinfo(message="Esta MP ya esta Liberada", title="Error")
         return   
     try:
         conexion=sqlite3.connect(entrada_ruta_bd.get())
@@ -129,8 +134,12 @@ def liberar():
 def verificar():
     id = cuadro.item(cuadro.selection())["text"]
     respon = entrada_responsable.get()
+    estado = cuadro.item(cuadro.selection())["values"][29]
     if respon == "":
         messagebox.showinfo(message="Ingrese Responsable", title="Error")
+        return   
+    if estado == "pendiente":
+        messagebox.showinfo(message="Esta MP no esta Liberada", title="Error")
         return   
     conexion=sqlite3.connect(entrada_ruta_bd.get())
     conexion.execute("""UPDATE recepcion SET estado = "verificado", resver = ? WHERE id = ?;""",(respon,id))
@@ -502,14 +511,14 @@ cuadro.heading("Estado", text="Estado")
 cuadro.heading("Responsable Verificacion", text="Responsable Verificacion")
 
 
-barra = ttk.Scrollbar(cuadro,orient=tk.HORIZONTAL)
+barra = ttk.Scrollbar(pestaña_prod,orient=tk.HORIZONTAL)
 barra2 = ttk.Scrollbar(cuadro,orient=tk.VERTICAL)
 cuadro.config(yscrollcommand=barra2.set)
 barra2.config(command=cuadro.yview)
 cuadro.config(xscrollcommand=barra.set)
 barra.config(command=cuadro.xview)
 cuadro.place(relx=0.01, rely=0.5, relwidth=0.95, relheight=0.47)
-barra.pack(fill=tk.X, side=BOTTOM)
+barra.place(relx=0.01, rely=0.97,relwidth=0.95)
 barra2.pack(fill=tk.Y, side=RIGHT)
 
 boton_cargar = ttk.Button(pestaña_prod, text="Cargar", command= cargar)
