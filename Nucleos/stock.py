@@ -63,8 +63,12 @@ def buscar(s,t):
         for s in cuadro.get_children():
             cuadro.delete(s)
         conexion=sqlite3.connect(entrada_ruta_bd.get())
-        a = conexion.execute("""SELECT * FROM stock WHERE mp = ?;""", (combobox.get(),))         
-        b = a.fetchall()  
+        if check_nulos_value.get()==False:
+            a = conexion.execute("""SELECT * FROM stock WHERE mp = ? and stock != ?;""", (combobox.get(),0))        
+            b = a.fetchall()
+        else:
+            a = conexion.execute("""SELECT * FROM stock WHERE mp = ?;""", (combobox.get(),))
+            b = a.fetchall()        
         for i in b:
             cuadro.insert("", tk.END, text=i[0],
                                 values=(i[2],i[5],i[3],i[1],i[6]))
@@ -73,8 +77,13 @@ def buscar(s,t):
         for s in cuadro.get_children():
             cuadro.delete(s)
         conexion=sqlite3.connect(entrada_ruta_bd.get())
-        a = conexion.execute("""SELECT * FROM stock WHERE lote = ?;""", (combobox_lote.get(),))         
-        b = a.fetchall()  
+        if check_nulos_value.get()==False:
+            a = conexion.execute("""SELECT * FROM stock WHERE lote = ? and stock !=?;""", (combobox_lote.get(),0))         
+            b = a.fetchall()  
+        else:
+            a = conexion.execute("""SELECT * FROM stock WHERE lote = ?;""", (combobox_lote.get(),))         
+            b = a.fetchall() 
+
         for i in b:
             cuadro.insert("", tk.END, text=i[0],
                                 values=(i[2],i[5],i[3],i[1],i[6]))
@@ -83,8 +92,12 @@ def buscar(s,t):
         for s in cuadro.get_children():
             cuadro.delete(s)
         conexion=sqlite3.connect(entrada_ruta_bd.get())
-        a = conexion.execute("""SELECT * FROM stock WHERE deposito = ?;""", (combobox_deposito.get(),))         
-        b = a.fetchall()  
+        if check_nulos_value.get()==False:
+            a = conexion.execute("""SELECT * FROM stock WHERE deposito = ? and stock !=?;""", (combobox_deposito.get(),0))         
+            b = a.fetchall()
+        else:
+            a = conexion.execute("""SELECT * FROM stock WHERE deposito = ?;""", (combobox_deposito.get(),))         
+            b = a.fetchall()  
         for i in b:
             cuadro.insert("", tk.END, text=i[0],
                                 values=(i[2],i[5],i[3],i[1],i[6]))
@@ -158,9 +171,9 @@ def actualizar():
     conexion.close()    
     return
 
-def busqueda_mp(letra):
+def busqueda_mp(le):
     for s in cuadro.get_children():
-            cuadro.delete(s)
+            cuadro.delete(s)    
     conexion=sqlite3.connect(entrada_ruta_bd.get())
     if check_nulos_value.get()==False:
         a = conexion.execute("""SELECT * FROM stock where stock != ? ;""",(0,))
@@ -217,12 +230,14 @@ label_lote.place(relx=0.01, rely=0.22)
 label_deposito = ttk.Label(pestaña_prod, text="Deposito")
 label_deposito.place(relx=0.01, rely=0.36)
 
-combobox = ttk.Combobox(pestaña_prod, width=40,validate="key",validatecommand=((pestaña_prod.register(busqueda_mp)),"%S"))
+combobox = ttk.Combobox(pestaña_prod, width=40)
 combobox.place(relx=0.11, rely=0.08)
 combobox.bind("<<ComboboxSelected>>", partial(buscar,"mp"))
-combobox_lote = ttk.Combobox(pestaña_prod, width=40,validate="key",validatecommand=((pestaña_prod.register(busqueda_lote)),"%S"))
+combobox.bind("<Return>", partial(busqueda_mp))
+combobox_lote = ttk.Combobox(pestaña_prod, width=40)
 combobox_lote.place(relx=0.11, rely=0.22)
 combobox_lote.bind("<<ComboboxSelected>>", partial(buscar,"lote"))
+combobox_lote.bind("<Return>", partial(busqueda_lote))
 combobox_deposito = ttk.Combobox(pestaña_prod, width=40)
 combobox_deposito.place(relx=0.11, rely=0.36)
 combobox_deposito.bind("<<ComboboxSelected>>", partial(buscar,"deposito"))

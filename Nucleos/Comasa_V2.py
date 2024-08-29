@@ -31,7 +31,7 @@ balanza_chica.write_timeout = 1
 
 def leer_archivo():
     bd = la.Leer_archivo("archivo_bd.txt")
-    sec = la.Leer_archivo("archivo_sector.txt")
+    sec = la.Leer_archivo("archivo_sector_cereales.txt")
     archivo_bd = bd.leer()
     archivo_sec = (sec.leer())
     if archivo_bd!= False:        
@@ -172,7 +172,7 @@ def seleccionar_sector(s):
     sec = sele_sector.get()
     ruta_guardar.append(sec)
     try: 
-        archivo = open(ruta_txt + "/archivo_sector.txt","w")
+        archivo = open(ruta_txt + "/archivo_sector_cereales.txt","w")
         archivo_csv = writer(archivo)
         archivo_csv.writerow(ruta_guardar)
         archivo.close()
@@ -770,7 +770,7 @@ def cargar():
 
     ndenucleo = cuadro_carga.item(cuadro_carga.selection())["text"]
     codnucleo= cuadro_carga.item(cuadro_carga.selection())["values"][1]    
-      
+    comentario = comentario_carga.get()
     fecha = time.strftime("%d/%m/%y")
     hora = time.strftime("%H:%M:%S")
     conexion=sqlite3.connect(entrada_ruta_bd.get())    
@@ -780,8 +780,8 @@ def cargar():
     b = a.fetchall() 
     if b == []:
         b = [[0]]
-    conexion.execute("""insert into registro_carga (fecha,hora,codprod,ndebatch,ndenucleo,formula,sector, codnucleo)
-                    VALUES(?,?,?,?,?,?,?,?);""" ,(fecha,hora,d[0][0],b[0][0]+1,ndenucleo,combobox_carga.get(),sector_carga,codnucleo))
+    conexion.execute("""insert into registro_carga (fecha,hora,codprod,ndebatch,ndenucleo,formula,sector, codnucleo, comentario)
+                    VALUES(?,?,?,?,?,?,?,?,?);""" ,(fecha,hora,d[0][0],b[0][0]+1,ndenucleo,combobox_carga.get(),sector_carga,codnucleo,comentario))
     conexion.commit()
     conexion.execute("""UPDATE stock_nucleos SET estado = "utilizado" WHERE codprod = ? and ndebatch = ?;""" ,(codnucleo, ndenucleo))
     conexion.commit()
@@ -895,6 +895,17 @@ def ordenar(col):
             cuadro.delete(s)
         for s in elem_ordenado:
             cuadro.insert("", tk.END, text=s["text"], values=(s["values"]))
+    if col == "batch_macro":
+        elem = []
+        elem_ordenado = []
+        for t in cuadro_macro.get_children():
+            elem.append((cuadro_macro.item(t)))       
+        elem_ordenado = sorted(elem, key=lambda x: x["text"])        
+        for s in cuadro_macro.get_children():
+            cuadro_macro.delete(s)
+        for s in elem_ordenado:
+            cuadro_macro.insert("", tk.END, text=s["text"], values=(s["values"]))
+
     if col == "batch_reg":
         elem = []
         elem_ordenado = []
@@ -928,7 +939,7 @@ def ordenar(col):
         for s in elem_ordenado:
             cuadro2.insert("", tk.END, text=s["text"], values=(s["values"]))
         
-    if col == "mp_macro":
+    if col == "mp_macro_reg":
         elem = []
         elem_ordenado = []
         for t in cuadro_macro2.get_children():
@@ -938,7 +949,28 @@ def ordenar(col):
             cuadro_macro2.delete(s)
         for s in elem_ordenado:
             cuadro_macro2.insert("", tk.END, text=s["text"], values=(s["values"]))
+    
+    if col == "mp_macro":
+        elem = []
+        elem_ordenado = []
+        for t in cuadro_macro.get_children():
+            elem.append((cuadro_macro.item(t)))
+        elem_ordenado = sorted(elem, key=lambda x: x["values"][0])
+        for s in cuadro_macro.get_children():
+            cuadro_macro.delete(s)
+        for s in elem_ordenado:
+            cuadro_macro.insert("", tk.END, text=s["text"], values=(s["values"]))        
         
+    if col == "batch_reg_macro":
+        elem = []
+        elem_ordenado = []
+        for t in cuadro_macro2.get_children():
+            elem.append(cuadro_macro2.item(t))       
+        elem_ordenado = sorted(elem, key=lambda x: x["values"][1])        
+        for s in cuadro_macro2.get_children():
+            cuadro_macro2.delete(s)
+        for s in elem_ordenado:
+            cuadro_macro2.insert("", tk.END, text=s["text"], values=(s["values"]))     
 
 
 ventana = Tk()
@@ -1045,16 +1077,16 @@ combobox_macro.bind("<<ComboboxSelected>>", partial(formula_seleccionada,"macro"
 cuadro_macro = ttk.Treeview(frame_macro, columns=("MP","Cantidad", "Lote", "Deposito"))
 barra_macro = ttk.Scrollbar(cuadro_macro)
 cuadro_macro.column("#0", width=20, anchor="center")
-cuadro_macro.column("MP", width=100, anchor="center")
+cuadro_macro.column("MP", width=100)
 cuadro_macro.column("Cantidad", width=100, anchor="center")
 cuadro_macro.column("Lote", width=200, anchor="center")
 cuadro_macro.column("Deposito", width=200, anchor="center")
-cuadro_macro.heading("#0", text="N° de Batch")
-cuadro_macro.heading("MP", text="MP")
+cuadro_macro.heading("#0", text="N° de Batch",command=lambda: ordenar("batch_macro"))
+cuadro_macro.heading("MP", text="MP",command=lambda: ordenar("mp_macro"))
 cuadro_macro.heading("Cantidad", text="Cantidad")
 cuadro_macro.heading("Lote", text="Lote")
 cuadro_macro.heading("Deposito", text="Deposito")
-cuadro_macro.config(yscrollcommand=barra.set)
+cuadro_macro.config(yscrollcommand=barra_macro.set)
 barra_macro.config(command=cuadro_macro.yview)
 cuadro_macro.place(x=60, y=60, relwidth=0.75, relheight=0.6)
 cuadro_macro.bind("<<TreeviewSelect>>",partial(mp_seleccionada,"macro"))
@@ -1132,8 +1164,8 @@ cuadro_macro2.column("Vencimiento", width=100, anchor="center")
 cuadro_macro2.column("Deposito", width=100, anchor="center")
 cuadro_macro2.heading("#0", text="Fecha")
 cuadro_macro2.heading("Hora", text="Hora")
-cuadro_macro2.heading("N° de Batch", text="N° Batch/ID")
-cuadro_macro2.heading("MP", text="MP",command=lambda: ordenar("mp_macro"))
+cuadro_macro2.heading("N° de Batch", text="N° Batch/ID",command=lambda: ordenar("batch_reg_macro"))
+cuadro_macro2.heading("MP", text="MP",command=lambda: ordenar("mp_macro_reg"))
 cuadro_macro2.heading("Cantidad", text="Cantidad")
 cuadro_macro2.heading("Lote", text="lote", )
 cuadro_macro2.heading("Vencimiento", text="Vencimiento", )

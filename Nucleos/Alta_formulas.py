@@ -49,29 +49,31 @@ def alta_insumo():
     a = entrada_mp.get()
     deposito = entrada_deposito.get().upper()
     codigo = entrada_codigo.get()    
-    #try:
-    if a != "":
-        for i in a:
-            if i ==" ":
-                mp = mp + "_"
-            else:
-                mp = mp + i           
-    conexion=sqlite3.connect(entrada_ruta.get())    
-    a = conexion.execute("""SELECT * FROM depositos WHERE deposito = ?;""",(deposito,))
-    b = a.fetchall()
-    if b == []:
-        conexion.execute("""insert into depositos (deposito)
-        VALUES(?);""",(deposito,))
-        conexion.commit()         
-    conexion.execute("""insert into mp (mp,deposito,codmp)
-    VALUES(?,?,?);""",(mp,deposito,codigo))
-    conexion.commit()                     
-    conexion.close()    
-    buscar()
-    #except:
-    #    messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
+    try:
+        if a != "":
+            for i in a:
+                if i ==" ":
+                    mp = mp + "_"
+                else:
+                    mp = mp + i           
+        conexion=sqlite3.connect(entrada_ruta.get())    
+        a = conexion.execute("""SELECT * FROM depositos WHERE deposito = ?;""",(deposito,))
+        b = a.fetchall()
+        if b == []:
+            conexion.execute("""insert into depositos (deposito)
+            VALUES(?);""",(deposito,))
+            conexion.commit()         
+        conexion.execute("""insert into mp (mp,deposito,codmp)
+        VALUES(?,?,?);""",(mp,deposito,codigo))
+        conexion.commit()                     
+        conexion.close()    
+        buscar()
+    except:
+        conexion.close()    
+        messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
 
 def alta_formula():  
+    try:    
         nom_for = ""
         sector = selec_sector.get()        
         a = str(entrada_nombre_for.get())  
@@ -107,7 +109,10 @@ def alta_formula():
             
         else:
             messagebox.showinfo(message="Ingrese el Nombre de Formula", title="Ingrese Nombre")
-    
+    except:
+            conexion.close()    
+            messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
+
 def agregar_insumo():
     nom_for = entrada_nombre_for.get()
     mp = entrada_mp_for.get()
