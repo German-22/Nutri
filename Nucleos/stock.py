@@ -203,6 +203,24 @@ def busqueda_lote(letra):
     conexion.close()
     return True
 
+def actualizar_simulado():
+    try:
+        conexion=sqlite3.connect(entrada_ruta_bd.get())
+        conexion.execute("""UPDATE stock SET stocksim = stock;""")
+        conexion.commit()
+        conexion.execute("""UPDATE stock SET estado = "agotado" where stock = ?;""",(0,))
+        conexion.commit()
+        conexion.close()
+        messagebox.showinfo(message="Actualizado", title="Actualizado",)
+    except:
+        messagebox.showinfo(message="Error en Base de Datos", title="Error")
+    
+def autenticar():
+    if(entrada_contraseña.get()=="nutri23"):        
+        boton_act_sim["state"] = ["enable"]       
+    else:
+        messagebox.showinfo(message="Contraseña Incorrecta", title="Contraseña Incorrecta")
+
 
 ventana = Tk()
 ventana.protocol("WM_DELETE_WINDOW", cerrar)
@@ -278,6 +296,14 @@ boton_act = ttk.Button(pestaña_prod,text="Actualizar Stock", command= actualiza
 boton_act.place(relx=0.7, rely=0.2,relheight=0.07)
 entrada_stock = ttk.Entry(pestaña_prod, width=10)
 entrada_stock.place(relx=0.6, rely=0.22)
+boton_act_sim = ttk.Button(pestaña_prod,text="Actualizar Stock Simulado",state="disable", command= actualizar_simulado)
+boton_act_sim.place(relx=0.8, rely=0.2,relheight=0.07)
+label_contraseña = ttk.Label(pestaña_config, text="Contraseña")
+entrada_contraseña = ttk.Entry(pestaña_config, width= 30,show="*")
+label_contraseña.place(relx=0.05, rely=0.01)
+entrada_contraseña.place(relx=0.27, rely=0.01)
+boto_autenticar = ttk.Button(pestaña_config, text="Autenticar", command=autenticar)
+boto_autenticar.place(relx=0.8, rely=0.01)
 leer_archivo()
 leer_base()
 ventana.mainloop()

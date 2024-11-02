@@ -29,7 +29,9 @@ def leer_base():
         a = conexion.execute("""SELECT * FROM depositos;""")           
         combobox_depo["values"] = list(a)    
         a = conexion.execute("""SELECT nombre FROM formulas WHERE sector = "Nucleos_Cereales" or sector = "Nucleos_Comasa" or sector = "Nucleos_Jarabe" ;""")         
-        combobox_carga['values'] = list(a)  
+        combobox_carga['values'] = list(a)                        
+        a = conexion.execute("""SELECT DISTINCT formula FROM simulacion WHERE estado != "finalizado";""")         
+        filtro['values'] = list(a)   
         conexion.close()        
     except:
         messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
@@ -371,17 +373,18 @@ def nuevo(sec):
         conexion.close()      
         buscar("carga")
       
-def buscar(sec):
+def buscar(sec, formula = "todas"):    
+   
     if sec == "nucleos":
         for s in cuadro.get_children():
                 cuadro.delete(s)
         conexion=sqlite3.connect(entrada_ruta_bd.get())
-        if check_nulos_value.get()==False:
-            a = conexion.execute("""SELECT * FROM simulacion WHERE estado != "finalizado" and estado != "cargado";""")         
-            b = a.fetchall()
-        else:        
+        if formula == "todas":                     
             a = conexion.execute("""SELECT * FROM simulacion WHERE estado != "finalizado";""")         
             b = a.fetchall()  
+        else:
+            a = conexion.execute("""SELECT * FROM simulacion WHERE estado != "finalizado" and formula = ?;""",(formula,))         
+            b = a.fetchall() 
         for i in b:
             cuadro.insert("", tk.END, text=i[1],
                                 values=(i[3],i[2],i[8],i[6],i[4],i[5],i[7],i[9],i[0]))
@@ -421,6 +424,7 @@ def actualizar():
     dep = cuadro.item(cuadro.selection())["values"][4]  
     lot = cuadro.item(cuadro.selection())["values"][5]     
     can = cuadro.item(cuadro.selection())["values"][3] 
+    formula = cuadro.item(cuadro.selection())["values"][1] 
     mp = combobox_mp.get()
     deposito = combobox_depo.get()
     cantidad = entrada_cantidad.get()
@@ -440,7 +444,7 @@ def actualizar():
     else:
         messagebox.showinfo(message="No hay suficiente stock", title="Error")
     conexion.close()
-    buscar("nucleos")
+    buscar("nucleos", formula)
 
 def agrear_mp():
     codprod = entrada_cod_produccion.get()
@@ -460,7 +464,7 @@ def agrear_mp():
         conexion.close()
     else:
         messagebox.showinfo(message="No hay suficiente stock", title="Error")
-    buscar("nucleos")
+    buscar("nucleos", formula)
 
 def deposito_seleccionado(e):    
     mp = []              
@@ -516,16 +520,17 @@ def seleccion(g,h):
         None
 
 def finalizar(sec):
+   
     if sec == "nucleos":        
         codprod = cuadro.item(cuadro.selection())["text"]   
         conexion=sqlite3.connect(entrada_ruta_bd.get())
         conexion.execute("""UPDATE producciones SET estado = "finalizado" WHERE codprod = ?;""", (codprod,))
         conexion.commit()
         a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and estado != "simulado" and estado != "finalizado";""",(codprod,))         
-        b = a.fetchall()  
+        b = a.fetchall()         
               
         if b != []:
-            #for i in b:            
+            for i in b:            
             #    r = conexion.execute("""SELECT * FROM stock WHERE mp = ? and lote = ? and deposito = ?;""", (i[3],i[5],i[4]))         
             #    f = r.fetchall()                
             #    if f == []:   
@@ -535,13 +540,15 @@ def finalizar(sec):
             #        estado = "agotado"
             #    else:
             #        estado = "liberado"
-                #conexion.execute("""UPDATE stock SET stocksim = ? , estado = ? WHERE mp = ? and lote = ? and deposito = ?;""",(f[0][3],estado,i[3],i[5],i[4]))
-                #conexion.commit()
+                
+                conexion.execute("""UPDATE stock SET stocksim = (stocksim + ?) WHERE mp = ? and lote = ? and deposito = ?;""",(i[6],i[3],i[5],i[4]))
+                conexion.commit()                
         
             conexion.execute("""DELETE FROM simulacion WHERE codprod = ?;""", (codprod,))
             conexion.commit()
             conexion.close()
-            buscar("nucleos")
+            for s in cuadro.get_children():
+                cuadro.delete(s)
         else:
            messagebox.showinfo(message="ESTA PRODUCCION NO ESTA PROGRAMADA", title="Error")
         return 
@@ -643,6 +650,20 @@ def selec_formula(s,sector):
         entrada_cod_prod_car.insert(0,str(b[0][0]) + lote + "C" )
         entrada_cod_prod_car["state"] = ["readonly"]
 
+def filtrar_formula(s):
+    prod = str(filtro.get())
+    for s in cuadro.get_children():
+                cuadro.delete(s)
+    conexion=sqlite3.connect(entrada_ruta_bd.get())
+       
+    a = conexion.execute("""SELECT * FROM simulacion WHERE formula = ? and estado != "finalizado";""", (prod,))         
+    b = a.fetchall()  
+    for i in b:
+        cuadro.insert("", tk.END, text=i[1],
+                                values=(i[3],i[2],i[8],i[6],i[4],i[5],i[7],i[9],i[0]))
+    conexion.close()
+   
+
 def cerrar():
     ventana.destroy
     sys.exit()
@@ -668,7 +689,7 @@ entrada_ruta_bd.place(relx=0.27, rely=0.14)
 boton_ruta_bd = ttk.Button(pestaña_config, text="Config. Ruta", command=selecionar_ruta)
 boton_ruta_bd.place(relx=0.8, rely=0.14)
 label_codigo = ttk.Label(pestaña_prod, text="Codigo de Produccion")
-label_codigo.place(relx=0.01, rely=0.2)
+label_codigo.place(relx=0.01, rely=0.19)
 label_lote_juliano = ttk.Label(pestaña_prod, text="Lote Juliano")
 label_lote_juliano.place(relx=0.01, rely=0.01)
 label_lote_juliano_carga = ttk.Label(pestaña_carga, text="Lote Juliano")
@@ -697,7 +718,7 @@ entrada_cantidad = ttk.Entry(pestaña_prod, width=20,validate="key",
                            validatecommand=((pestaña_prod.register(validar_entrada)), "%S"))
 entrada_cantidad.place(relx=0.5, rely=0.19)
 entrada_cod_produccion = ttk.Entry(pestaña_prod, width=20)
-entrada_cod_produccion.place(relx=0.1, rely=0.2)
+entrada_cod_produccion.place(relx=0.1, rely=0.19)
 entrada_lote_juliano = ttk.Entry(pestaña_prod, width=20,validate="key",
                            validatecommand=((pestaña_prod.register(validar_entrada_cod)), "%S"))
 entrada_lote_juliano.place(relx=0.1, rely=0.01)
@@ -710,6 +731,12 @@ combobox.bind("<<ComboboxSelected>>", partial(selec_formula,"prod"))
 entrada_ndebatch= ttk.Entry(pestaña_prod, width=10,validate="key",
                            validatecommand=((pestaña_prod.register(validar_entrada)), "%S"))
 entrada_ndebatch.place(relx=0.1, rely=0.13)
+
+label_filtro = ttk.Label(pestaña_prod, text="Filtro")
+label_filtro.place(relx=0.01, rely=0.25)
+filtro = ttk.Combobox(pestaña_prod, width=30)
+filtro.place(relx=0.1, rely=0.25)
+filtro.bind("<<ComboboxSelected>>", partial(filtrar_formula))
 cuadro = ttk.Treeview(pestaña_prod, columns=("MP","Formula","N° de Batch","Cantidad", "Deposito", "Lote", "Vto","Estado","id"))
 barra = ttk.Scrollbar(cuadro)
 cuadro.column("#0", width=20, anchor="center")
@@ -741,14 +768,13 @@ boton_calcular = ttk.Button(pestaña_prod, text="Simular", command = partial(cal
 boton_calcular.place(relx=0.27, rely=0.01)
 boton_nuevo = ttk.Button(pestaña_prod, text="Programar", command = partial (nuevo,"nucleos"))
 boton_nuevo.place(relx=0.8, rely=0.04,relheight = 0.1)
-boton_buscar = ttk.Button(pestaña_prod, text="Buscar", command = partial (buscar,"nucleos"))
-boton_buscar.place(relx=0.27, rely=0.07)
+
 boton_eliminar = ttk.Button(pestaña_prod, text="Eliminar", command = partial (eliminar,"nucleos"))
-boton_eliminar.place(relx=0.27, rely=0.13)
+boton_eliminar.place(relx=0.27, rely=0.07)
 boton_actualizar = ttk.Button(pestaña_prod, text="Actualizar", command=actualizar)
 boton_actualizar.place(relx=0.67, rely=0.07)
 boton_agregar = ttk.Button(pestaña_prod, text="Agregar", command=partial(calcular,"agregar"))
-boton_agregar.place(relx=0.27, rely=0.19)
+boton_agregar.place(relx=0.27, rely=0.13)
 boton_finalizar = ttk.Button(pestaña_prod, text="Finalizar", command = partial (finalizar,"nucleos"))
 boton_finalizar.place(relx=0.9, rely=0.04,relheight = 0.1)
 cuadro_carga = ttk.Treeview(pestaña_carga, columns=("Formula","N° de Batch"))
@@ -796,9 +822,6 @@ label_ndeba.place(relx=0.4, rely=0.25)
 entrada_ndeba= ttk.Entry(pestaña_prod, width=10,validate="key",
                            validatecommand=((pestaña_carga.register(validar_entrada)), "%S"))
 entrada_ndeba.place(relx=0.5, rely=0.25)
-check_nulos_value = tk.BooleanVar()
-check_nulos = ttk.Checkbutton(pestaña_prod, text="Mostrar Cargados",variable=check_nulos_value)
-check_nulos.place(relx=0.85, rely=0.2)
 
 leer_archivo()
 leer_base()

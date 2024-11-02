@@ -93,28 +93,34 @@ def buscar(s):
         except:
             messagebox.showinfo(message="Seleccione una Materia Prima", title="Error")
             return
-        
+        b = []
         conexion=sqlite3.connect(entrada_ruta_bd.get())          
         a = conexion.execute("""SELECT * FROM Macro_Cereales WHERE mp = ? and lote = ? ; """,(mp,lote))         
-        b = a.fetchall()  
+        c = a.fetchall()  
+        b.append(c)
         a = conexion.execute("""SELECT * FROM Nucleos_Cereales WHERE mp = ? and lote = ? ; """,(mp,lote))         
         b.append(a.fetchall())
+        
         a = conexion.execute("""SELECT * FROM Macro_Comasa WHERE mp = ? and lote = ? ; """,(mp,lote))         
         b.append(a.fetchall())
+        
         a = conexion.execute("""SELECT * FROM Nucleos_Comasa WHERE mp = ? and lote = ? ; """,(mp,lote))         
         b.append(a.fetchall())
+      
         a = conexion.execute("""SELECT * FROM Macro_Jarabe WHERE mp = ? and lote = ? ; """,(mp,lote))         
         b.append(a.fetchall())
+       
         a = conexion.execute("""SELECT * FROM Nucleos_Jarabe WHERE mp = ? and lote = ? ; """,(mp,lote))         
         b.append(a.fetchall())
+        
         conexion.close()
         for s in cuadro2_mp.get_children():
             cuadro2_mp.delete(s)  
-        
-        for e in b:
-            if e != []:  
+        for e in b:            
+            if e != []:                
                 for i in e:
                     kg = ""
+                 
                     for u in str(i[8]):
                         if u != ".":
                             kg = kg + u  
@@ -162,22 +168,22 @@ def buscar(s):
         for s in cuadro2_fecha.get_children():
             cuadro2_fecha.delete(s)  
         
-        for e in b:
-            if e != []:  
-                for i in e:
-                    kg = ""
-                    for u in str(i[8]):
-                        if u != ".":
-                            kg = kg + u  
-                        else:
-                            kg = kg + ","
-                    if i[10]!="Macro_Comasa":              
-                        cuadro2_fecha.insert("", tk.END, text=i[0],
-                                        values=(i[11],i[2],i[3],i[1],i[4],i[6],i[7],i[5],kg,i[9],i[12]))
-                        
+        for i in b:                       
+            if i != []:        
+                             
+                kg = ""                    
+                for u in str(i[8]):
+                    if u != ".":
+                        kg = kg + u  
                     else:
-                        cuadro2_fecha.insert("", tk.END, text=i[0],
-                                        values=(i[11],i[2],i[3],"-",i[4],i[6],i[7],i[5],kg,i[9],i[12]))
+                        kg = kg + ","
+                if i[10]!="Macro_Comasa":              
+                    cuadro2_fecha.insert("", tk.END, text=i[0],
+                                    values=(i[11],i[2],i[3],i[1],i[4],i[6],i[7],i[5],kg,i[9],i[12]))
+                    
+                else:
+                    cuadro2_fecha.insert("", tk.END, text=i[0],
+                                    values=(i[11],i[2],i[3],"-",i[4],i[6],i[7],i[5],kg,i[9],i[12]))
 
               
 def exportar(s):    
@@ -300,6 +306,7 @@ def validar_entrada(numero):
         else:
             return False
     
+
 ventana = Tk()
 ventana.protocol("WM_DELETE_WINDOW", cerrar)
 ventana.geometry("1200x600")
@@ -402,6 +409,7 @@ configurar_ruta_registro.place(relx=0.8, rely=0.3)
 mp = ttk.Combobox(pestaña_mp, width=40)
 mp.place(relx=0.07, rely=0.01)
 mp.bind("<<ComboboxSelected>>", partial(buscar_mp))
+
 
 cuadro_mp = ttk.Treeview(pestaña_mp, columns=("Lote","Deposito"))
 cuadro_mp.column("#0", width=20, anchor="center")

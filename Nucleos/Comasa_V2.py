@@ -184,15 +184,16 @@ def formula_seleccionada(event,sector):
     if event == "nucleos":
         try:
             conexion=sqlite3.connect(entrada_ruta_bd.get())
-            a = conexion.execute("""SELECT * FROM simulacion WHERE formula = ? and estado != "finalizado";""" ,(combobox.get(),))         
-            b = a.fetchall()
+            a = conexion.execute("""SELECT DISTINCT codprod FROM simulacion WHERE formula = ? and estado != "finalizado";""" ,(combobox.get(),))         
+            b = a.fetchall() 
+                       
             cod['state'] = ['enable']
             cod.delete(0,"end")
-            cod.insert(0,b[0][1])
+            cod.insert(0,b[0][0])
             cod['state'] = ['disable']            
-            a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and estado = "programado" ORDER BY ndebatch;""" ,(b[0][1],))         
+            a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and estado = "programado" ORDER BY ndebatch;""" ,(b[0][0],))         
             b = a.fetchall()               
-            
+            conexion.close()
             if b == []:
                 messagebox.showinfo(message="Se Fraccionaron Todas las MP de Esta Produccion", title="Fraccionado Finalizado")
             else:
@@ -200,28 +201,30 @@ def formula_seleccionada(event,sector):
                     cuadro.delete(s)
                 for i in b:
                     cuadro.insert("", tk.END, text=i[8], values=(i[3],i[5],i[6],i[4]))                                              
-                conexion.close()
+                
         except:
               messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
+              conexion.close()  
     if event == "macro":
         try:
             conexion=sqlite3.connect(entrada_ruta_bd.get())
-            a = conexion.execute("""SELECT * FROM simulacion WHERE formula = ? and estado = "programado";""" , (combobox_macro.get(),))         
+            a = conexion.execute("""SELECT codprod FROM simulacion WHERE formula = ? and estado = "programado";""" , (combobox_macro.get(),))         
             b = a.fetchall()                 
             cod_macro['state'] = ['enable']
             cod_macro.delete(0,"end")
-            cod_macro.insert(0,b[0][1])
+            cod_macro.insert(0,b[0][0])
             cod_macro['state'] = ['disable']            
-            a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and estado = "programado" and cantidad != ?;""" ,(b[0][1],0))         
+            a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and estado = "programado" and cantidad != ?;""" ,(b[0][0],0))         
             b = a.fetchall()         
-           
+            conexion.close()           
             for s in cuadro_macro.get_children():
                 cuadro_macro.delete(s)
             for i in b:
                 cuadro_macro.insert("", tk.END, text=i[8], values=(i[3],i[6],i[5],i[4]))                                              
-            conexion.close()
+           
         except:
             messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
+            conexion.close()
     if event == "carga":
         conexion=sqlite3.connect(entrada_ruta_bd.get())
         a = conexion.execute("""SELECT * FROM producciones WHERE formula = ? and sector = ? and estado = "programado" ;""" , (combobox_carga.get(),reg_carga))         
@@ -233,6 +236,7 @@ def formula_seleccionada(event,sector):
         codprod = b[0][0]
         a = conexion.execute("""SELECT * FROM registro_carga WHERE codprod = ? ;""" , (codprod,))         
         b = a.fetchall()
+        conexion.close()
         for i in b:
             cuadro_carga2.insert("", tk.END, text=i[1],
                         values=(i[2],i[4],i[5],i[6],i[3],i[8]))       
@@ -612,6 +616,7 @@ def pesar(sector):
         lote_macro = combobox_lote_macro.get()
         conexion=sqlite3.connect(entrada_ruta_bd.get())
         a = conexion.execute("""SELECT * FROM stock WHERE  mp = ? and lote = ? and estado = "liberado" ;""", (MP_seleccionada_macro,lote_macro))         
+        
         b = a.fetchall()[0]
         vto = b[5]
         stock = float(b[3])

@@ -29,7 +29,9 @@ def leer_base():
         a = conexion.execute("""SELECT * FROM depositos;""")           
         combobox_depo["values"] = list(a)    
         a = conexion.execute("""SELECT nombre FROM formulas WHERE sector = "Nucleos_Cereales" or sector = "Nucleos_Comasa" or sector = "Nucleos_Jarabe" ;""")         
-        combobox_carga['values'] = list(a)  
+        combobox_carga['values'] = list(a)                        
+        a = conexion.execute("""SELECT DISTINCT formula FROM simulacion WHERE estado != "finalizado";""")         
+        filtro['values'] = list(a)   
         conexion.close()        
     except:
         messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
@@ -52,7 +54,7 @@ def selecionar_ruta():
 def calcular(x):
     eliminar("calcular")
     formula = str(combobox.get())
-    ndebatch_anterior = 0
+   
     conexion=sqlite3.connect(entrada_ruta_bd.get())
     a = conexion.execute("""SELECT sector FROM formulas WHERE nombre = ?;""",(formula,))         
     sector_for = a.fetchall()[0][0]        
@@ -91,7 +93,8 @@ def calcular(x):
         messagebox.showinfo(message="COMPLETE LOS CAMPOS", title="Error")
         return
    
-    ndebatch = int(entrada_ndebatch.get())+ndebatch_anterior        
+    ndebatch = float(entrada_ndebatch.get())
+
     mp = []
     dep = []    
     cantidad = []
@@ -106,8 +109,7 @@ def calcular(x):
     mp_stock = []
     lote = []
     deposito = []
-    lotes_agotados = []       
-    dep_agotados = []
+  
     try:
         conexion=sqlite3.connect(entrada_ruta_bd.get())
         a = conexion.execute("""SELECT * FROM %s;""" %formula)         
@@ -130,13 +132,13 @@ def calcular(x):
             mp_stock.clear()
             lote.clear()
             deposito.clear()             
-            a = conexion.execute("""SELECT * FROM stock WHERE mp = ? and estado = "liberado" and stocksim > ? ORDER BY vto;""",(i,0))         
+            a = conexion.execute("""SELECT * FROM stock WHERE mp = ? and estado = "liberado" and stocksim > ? ORDER BY vto;""",(i,0.0001))         
             b = a.fetchall()                              
             for p in b:        
                     
                 if datetime.strptime(str(p[5]), "%Y-%m-%d") > (datetime.strptime(str(datetime.now().date()),"%Y-%m-%d")):
                     vto.append(p[5])
-                    stock.append(p[4])                
+                    stock.append(round(p[4],3))                
                     lote.append(p[2])
                     deposito.append(p[1])
             dic_vto[i] = vto[0::] 
@@ -147,157 +149,46 @@ def calcular(x):
     except:
            
            messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")   
-    try:
-        k = 0
-        res =0
-        r = 0      
-        for i in dic_stock:#Recorro las MP en stock
-            lotes_agotados.clear()
-            dep_agotados.clear()
-            n = ndebatch_anterior
-            m = 0
-            parcial = False
-            entero = False          
+    try:     
+        k = 0                 
+        for i in dic_stock:#Recorro las MP en stock   
+            m = 0                    
             if dic_stock[i]==[]:
                 messagebox.showinfo(message="No Hay stock de" + " " + i , title="Stock Insuficiente") 
                 k += 1
-                continue
-            cant = float(dic_stock[i][m])
-            conexion=sqlite3.connect(entrada_ruta_bd.get())   
-            
-            while n<ndebatch:                                  
-                if entero == False:                        
-                    cant = float(dic_stock[i][m])                             
-                while cant < cantidad[k]:                              
-                    if len(dic_stock[i]) > m:  
-                        lotes_agotados.append(dic_lote[i][m]) 
-                        dep_agotados.append(dic_deposito[i][m])
-                        if entero == False:         
-                            cant = float(dic_stock[i][m])     
-                        entero = False               
-                        if parcial == False:    
-                            n = n + 1                
-                            res = cant - cantidad[k] 
-                            if  sector_for =="Macro_Comasa":
-                                try:
-                                    cant2 = dic_calculo[dic_lote[i][m]][1]
-                                    dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),cant+cant2,i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
-                                    parcial = True
-                                    m = m + 1                                       
-                                except:
-                                    dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),cant,i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
-                                    parcial = True
-                                    m = m + 1                                   
-                            else:
-                                dic_calculo[r] = [entrada_cod_produccion.get(), combobox.get(), i,dic_deposito[i][m],dic_lote[i][m],round(cant,3),dic_vto[i][m],n]
-                                parcial = True
-                                m = m + 1    
-                                r = r + 1                            
-                        else:
-                            res = cant + res
-                            if res < 0:                                
-                                if  sector_for =="Macro_Comasa":
-                                    try:
-                                        cant2 = dic_calculo[dic_lote[i][m]][1]
-                                        dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),cant+cant2,i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
-                                        m = m + 1                                        
-                                    except:
-                                        dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),cant,i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
-                                        m = m + 1                                        
-                                else:
-                                    dic_calculo[r] = [entrada_cod_produccion.get(), combobox.get(), i,dic_deposito[i][m],dic_lote[i][m],round(cant,3),dic_vto[i][m] ,n]
-                                    m = m + 1
-                                    r = r + 1   
-                            else:
-                                if  sector_for =="Macro_Comasa":
-                                    try:
-                                        cant2 = dic_calculo[dic_lote[i][m]][1]
-                                        dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),-(res-cant)+cant2,i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
-                                        cant = res                                        
-                                        if cant == 0:
-                                            m = m + 1
-                                        else:
-                                            parcial = False
-                                            entero = True 
-                                        if n == ndebatch:
-                                            cant = cantidad[k]
-                                    except:
-                                        dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),-(res-cant),i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
-                                        cant = res
-                                        if cant == 0:
-                                            m = m + 1
-                                        else:
-                                            parcial = False
-                                            entero = True 
-                                        if n == ndebatch:
-                                            cant = cantidad[k]
-                                else:
-                                    dic_calculo[r] = [entrada_cod_produccion.get(), combobox.get(), i,dic_deposito[i][m],dic_lote[i][m],round(-(res-cant),3),dic_vto[i][m] ,n]                                
-                                    r = r + 1   
-                                    cant = res
-                                    if cant == 0:
-                                        m = m + 1
-                                    else:
-                                        parcial = False
-                                        entero = True 
-                                    if n == ndebatch:
-                                        cant = cantidad[k]          
-                    else:
-                        cant = cantidad[k]
-                        messagebox.showinfo(message="No Hay suficiente stock de" + " " + i , title="Stock Insuficiente") 
-                        k += 1
-                        n = ndebatch
-                        dic_res_stock[i] = [lotes_agotados[0::],dep_agotados[0::]]
-
-                if len (dic_stock[i])>m:
-                    entero = True
-                    if parcial == True:
-                        if  sector_for =="Macro_Comasa":
-                            try:
-                                cant2 = dic_calculo[dic_lote[i][m]][1]
-                                dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),-res+cant2,i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
-                                
-                            except:                                
-                                dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),-res,i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
+                continue            
                                         
-                        else:                                       
-                            dic_calculo[r] = [entrada_cod_produccion.get(), combobox.get(), i,dic_deposito[i][m],dic_lote[i][m],round(-res,3),dic_vto[i][m] ,n]
-                            r = r + 1   
-                    else:
-                        n = n + 1
-                        if n <= ndebatch:
-                            if  sector_for =="Macro_Comasa":
-                                try:                                    
-                                    cant2 = dic_calculo[dic_lote[i][m]][1]
-                                    dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),cantidad[k]+cant2,i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
-                                    cant = cant - cantidad[k]                                    
-                                except:                                    
-                                    dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),cantidad[k],i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
-                                    cant = cant - cantidad[k]                                    
-                            else:
-                                dic_calculo[r] = [entrada_cod_produccion.get(), combobox.get(), i,dic_deposito[i][m],dic_lote[i][m],round(cantidad[k],3),dic_vto[i][m],n]                                
-                                cant = cant - cantidad[k]
-                                r = r + 1   
-            k = k + 1           
+            cant = float(dic_stock[i][m])
+            cant_usar = round(cantidad[k] * ndebatch,3)
+                    
+            while cant - cant_usar < 0:                                                        
+                if len(dic_deposito[i])>m:      
+                                            
+                    dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),round(cant,3),i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
+                    m = m + 1                                   
+                    cant_usar = cant_usar - cant
+                    if len(dic_deposito[i])<=m:
+                        messagebox.showinfo(message="No Hay stock de" + " " + i , title="Stock Insuficiente")
+                        break
+                else:
+                    messagebox.showinfo(message="No Hay stock de" + " " + i , title="Stock Insuficiente")
+                    break  
+            if len(dic_deposito[i])>m:
+                dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),round(cant_usar,3),i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
             
-        if  sector_for =="Macro_Comasa":
-                for e in dic_calculo:                               
-                    conexion.execute("""insert into simulacion (codprod,formula, mp, deposito, lote, cantidad, vto, ndebatch)
-                    VALUES(?,?,?,?,?,?,?,?);""",(entrada_cod_produccion.get(), combobox.get(), dic_calculo[e][2],dic_calculo[e][4],dic_calculo[e][5],round(dic_calculo[e][1],3),dic_calculo[e][6],1))
-                    conexion.commit()     
-        else:    
-            s = []    
-            for e in dic_calculo:  
-                s.append((dic_calculo[e][0],dic_calculo[e][1], dic_calculo[e][2],dic_calculo[e][3],dic_calculo[e][4],round(dic_calculo[e][5],3),dic_calculo[e][6],dic_calculo[e][7]))
-                
-            conexion.executemany("""insert into simulacion (codprod,formula, mp, deposito, lote, cantidad, vto, ndebatch)
-                    VALUES(?,?,?,?,?,?,?,?);""",(s))
-            conexion.commit()        
-            conexion.close()          
-          
-    except:
-        print("3")
-        messagebox.showinfo(message="Error en Calculo", title="Error")
+            m = m + 1   
+            k = k + 1          
+        
+        s = []    
+        for e in dic_calculo:  
+            s.append((dic_calculo[e][0],dic_calculo[e][3], dic_calculo[e][2],dic_calculo[e][4],dic_calculo[e][5],(dic_calculo[e][1]),dic_calculo[e][6],1))
+        conexion=sqlite3.connect(entrada_ruta_bd.get())    
+        conexion.executemany("""insert into simulacion (codprod,formula, mp, deposito, lote, cantidad, vto, ndebatch)
+                VALUES(?,?,?,?,?,?,?,?);""",(s))
+        conexion.commit()        
+        conexion.close()          
+    except:           
+           messagebox.showinfo(message="Error de calculo", title="Error de Conexion")     
     buscar("nucleos")
     return
 
@@ -314,6 +205,7 @@ def nuevo(sec):
         b = a.fetchall()  
         if b == []:
             return
+       
         formula = b[0][2]        
         for i in b:  
             r = conexion.execute("""SELECT * FROM stock WHERE mp = ? and lote = ? and deposito = ? ;""",(i[3],i[5],i[4]))         
@@ -330,26 +222,26 @@ def nuevo(sec):
                 VALUES(?,?,?,?,?);""",(codprod, formula, sector, entrada_ndebatch.get(),"programado"))
             conexion.commit() 
         else:
-            conexion.execute("""UPDATE producciones set ndebatch = ? WHERE codprod = ?;""",(int(f[0][0])+ int(entrada_ndebatch.get()), codprod))
+            conexion.execute("""UPDATE producciones set ndebatch = ? WHERE codprod = ?;""",(float(f[0][0])+ float(entrada_ndebatch.get()), codprod))
             conexion.commit() 
-        if sector=="Macro_Comasa":
-            for i in b:  
-                m = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and mp = ? and lote = ? and estado = "programado";""",(entrada_cod_produccion.get(),i[3],i[5]))         
-                n = m.fetchall() 
-                
-                if n !=[]:
-                    conexion.execute("""UPDATE simulacion SET cantidad = ? WHERE codprod = ? and mp = ? and lote = ? and estado = "programado";""" ,(round(float(n[0][6])+float(i[6]),3),entrada_cod_produccion.get(),i[3],i[5]))         
-                    conexion.commit()
-                    conexion.execute("""DELETE FROM simulacion WHERE codprod = ? and mp = ? and lote = ? and estado = "simulado";""",(entrada_cod_produccion.get(),i[3],i[5]))         
-                    conexion.commit()
-                else:
-                    conexion.execute("""UPDATE simulacion SET estado = "programado" WHERE codprod = ? and mp = ? and lote = ?;""",(entrada_cod_produccion.get(),i[3],i[5]))
-                    conexion.commit()
-        else:
-            conexion.execute("""UPDATE simulacion SET estado = "programado" WHERE codprod = ? and estado != "cargado" ;""",(codprod,))
-            conexion.commit()
+        
+        for i in b:  
+            
+            m = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and mp = ? and lote = ? and estado = "programado";""",(entrada_cod_produccion.get(),i[3],i[5]))         
+            n = m.fetchall() 
+            
+            if n !=[]:
+                conexion.execute("""UPDATE simulacion SET cantidad = ? WHERE codprod = ? and mp = ? and lote = ? and estado = "programado";""" ,(round(float(n[0][6])+float(i[6]),3),entrada_cod_produccion.get(),i[3],i[5]))         
+                conexion.commit()
+                conexion.execute("""DELETE FROM simulacion WHERE codprod = ? and mp = ? and lote = ? and estado = "simulado";""",(entrada_cod_produccion.get(),i[3],i[5]))         
+                conexion.commit()
+            else:
+                conexion.execute("""UPDATE simulacion SET estado = "programado" WHERE codprod = ? and mp = ? and lote = ?;""",(entrada_cod_produccion.get(),i[3],i[5]))
+                conexion.commit()
+       
         conexion.close()
         buscar("nucleos")
+
 
     if sec == "carga":
         codprod = entrada_cod_prod_car.get()
@@ -371,20 +263,21 @@ def nuevo(sec):
         conexion.close()      
         buscar("carga")
       
-def buscar(sec):
-    if sec == "nucleos":
+def buscar(sec, formula = "todas"):       
+    if sec == "nucleos":        
         for s in cuadro.get_children():
                 cuadro.delete(s)
         conexion=sqlite3.connect(entrada_ruta_bd.get())
-        if check_nulos_value.get()==False:
-            a = conexion.execute("""SELECT * FROM simulacion WHERE estado != "finalizado" and estado != "cargado";""")         
-            b = a.fetchall()
-        else:        
+        if formula == "todas":                     
             a = conexion.execute("""SELECT * FROM simulacion WHERE estado != "finalizado";""")         
             b = a.fetchall()  
+        else:
+            a = conexion.execute("""SELECT * FROM simulacion WHERE estado != "finalizado" and formula = ?;""",(formula,))         
+            b = a.fetchall() 
+        
         for i in b:
             cuadro.insert("", tk.END, text=i[1],
-                                values=(i[3],i[2],i[8],i[6],i[4],i[5],i[7],i[9],i[0]))
+                                values=(i[3],i[2],i[6],i[4],i[5],i[7],i[9],i[0]))
         conexion.close()
     if sec == "carga":
         for s in cuadro_carga.get_children():
@@ -415,12 +308,13 @@ def eliminar(sec):
     
 
 def actualizar():
-    
-    id = cuadro.item(cuadro.selection())["values"][8]  
+    print(cuadro.item(cuadro.selection())["values"])
+    id = cuadro.item(cuadro.selection())["values"][7]  
     mp2 = cuadro.item(cuadro.selection())["values"][0]  
-    dep = cuadro.item(cuadro.selection())["values"][4]  
-    lot = cuadro.item(cuadro.selection())["values"][5]     
-    can = cuadro.item(cuadro.selection())["values"][3] 
+    dep = cuadro.item(cuadro.selection())["values"][3]  
+    lot = cuadro.item(cuadro.selection())["values"][4]     
+    can = cuadro.item(cuadro.selection())["values"][2] 
+    formula = cuadro.item(cuadro.selection())["values"][1] 
     mp = combobox_mp.get()
     deposito = combobox_depo.get()
     cantidad = entrada_cantidad.get()
@@ -440,11 +334,14 @@ def actualizar():
     else:
         messagebox.showinfo(message="No hay suficiente stock", title="Error")
     conexion.close()
-    buscar("nucleos")
+    buscar("nucleos", formula)
 
 def agrear_mp():
     codprod = entrada_cod_produccion.get()
-    ndebatch = entrada_ndeba.get()
+    if codprod == "":
+        messagebox.showinfo(message="Seleccione una Produccion", title="Error")
+        return
+    #ndebatch = entrada_ndeba.get()
     mp = combobox_mp.get()
     deposito = combobox_depo.get()
     cantidad = entrada_cantidad.get()
@@ -455,12 +352,12 @@ def agrear_mp():
     b = a.fetchall()  
     
     if float(b[0][1]) >= float(cantidad):          
-        conexion.execute("""INSERT INTO simulacion (codprod,formula, mp, deposito, lote, cantidad, vto, ndebatch) VALUES(?,?,?,?,?,?,?,?);""", (codprod,formula,mp,deposito,lote,cantidad,b[0][0],ndebatch))
+        conexion.execute("""INSERT INTO simulacion (codprod,formula, mp, deposito, lote, cantidad, vto, ndebatch) VALUES(?,?,?,?,?,?,?,?);""", (codprod,formula,mp,deposito,lote,cantidad,b[0][0],1))
         conexion.commit()
         conexion.close()
     else:
         messagebox.showinfo(message="No hay suficiente stock", title="Error")
-    buscar("nucleos")
+    buscar("nucleos", formula)
 
 def deposito_seleccionado(e):    
     mp = []              
@@ -516,32 +413,34 @@ def seleccion(g,h):
         None
 
 def finalizar(sec):
+   
     if sec == "nucleos":        
         codprod = cuadro.item(cuadro.selection())["text"]   
         conexion=sqlite3.connect(entrada_ruta_bd.get())
         conexion.execute("""UPDATE producciones SET estado = "finalizado" WHERE codprod = ?;""", (codprod,))
         conexion.commit()
         a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and estado != "simulado" and estado != "finalizado";""",(codprod,))         
-        b = a.fetchall()  
+        b = a.fetchall()         
               
         if b != []:
-            #for i in b:            
-            #    r = conexion.execute("""SELECT * FROM stock WHERE mp = ? and lote = ? and deposito = ?;""", (i[3],i[5],i[4]))         
-            #    f = r.fetchall()                
-            #    if f == []:   
-            #        messagebox.showinfo(message="Hay un Error en BD", title="Error")
-            #        return
-            #    if f[0][3] <= 0:      
-            #        estado = "agotado"
-            #    else:
-            #        estado = "liberado"
-                #conexion.execute("""UPDATE stock SET stocksim = ? , estado = ? WHERE mp = ? and lote = ? and deposito = ?;""",(f[0][3],estado,i[3],i[5],i[4]))
-                #conexion.commit()
+            for i in b:            
+                #r = conexion.execute("""SELECT * FROM stock WHERE mp = ? and lote = ? and deposito = ?;""", (i[3],i[5],i[4]))         
+                #f = r.fetchall()                
+                #if f == []:   
+                #    messagebox.showinfo(message="Hay un Error en BD", title="Error")
+                #    return
+                #if f[0][3] <= 0:      
+                #    estado = "agotado"
+                #else:
+                #    estado = "liberado"                
+                conexion.execute("""UPDATE stock SET stocksim = (stocksim + ?) WHERE mp = ? and lote = ? and deposito = ?;""",(i[6],i[3],i[5],i[4]))
+                conexion.commit()                
         
             conexion.execute("""DELETE FROM simulacion WHERE codprod = ?;""", (codprod,))
             conexion.commit()
             conexion.close()
-            buscar("nucleos")
+            for s in cuadro.get_children():
+                cuadro.delete(s)
         else:
            messagebox.showinfo(message="ESTA PRODUCCION NO ESTA PROGRAMADA", title="Error")
         return 
@@ -643,6 +542,20 @@ def selec_formula(s,sector):
         entrada_cod_prod_car.insert(0,str(b[0][0]) + lote + "C" )
         entrada_cod_prod_car["state"] = ["readonly"]
 
+def filtrar_formula(s):
+    prod = str(filtro.get())
+    for s in cuadro.get_children():
+                cuadro.delete(s)
+    conexion=sqlite3.connect(entrada_ruta_bd.get())
+       
+    a = conexion.execute("""SELECT * FROM simulacion WHERE formula = ? and estado != "finalizado";""", (prod,))         
+    b = a.fetchall()  
+    for i in b:
+        cuadro.insert("", tk.END, text=i[1],
+                                values=(i[3],i[2],i[6],i[4],i[5],i[7],i[9],i[0]))
+    conexion.close()
+   
+
 def cerrar():
     ventana.destroy
     sys.exit()
@@ -668,7 +581,7 @@ entrada_ruta_bd.place(relx=0.27, rely=0.14)
 boton_ruta_bd = ttk.Button(pestaña_config, text="Config. Ruta", command=selecionar_ruta)
 boton_ruta_bd.place(relx=0.8, rely=0.14)
 label_codigo = ttk.Label(pestaña_prod, text="Codigo de Produccion")
-label_codigo.place(relx=0.01, rely=0.2)
+label_codigo.place(relx=0.01, rely=0.19)
 label_lote_juliano = ttk.Label(pestaña_prod, text="Lote Juliano")
 label_lote_juliano.place(relx=0.01, rely=0.01)
 label_lote_juliano_carga = ttk.Label(pestaña_carga, text="Lote Juliano")
@@ -697,7 +610,7 @@ entrada_cantidad = ttk.Entry(pestaña_prod, width=20,validate="key",
                            validatecommand=((pestaña_prod.register(validar_entrada)), "%S"))
 entrada_cantidad.place(relx=0.5, rely=0.19)
 entrada_cod_produccion = ttk.Entry(pestaña_prod, width=20)
-entrada_cod_produccion.place(relx=0.1, rely=0.2)
+entrada_cod_produccion.place(relx=0.1, rely=0.19)
 entrada_lote_juliano = ttk.Entry(pestaña_prod, width=20,validate="key",
                            validatecommand=((pestaña_prod.register(validar_entrada_cod)), "%S"))
 entrada_lote_juliano.place(relx=0.1, rely=0.01)
@@ -710,12 +623,18 @@ combobox.bind("<<ComboboxSelected>>", partial(selec_formula,"prod"))
 entrada_ndebatch= ttk.Entry(pestaña_prod, width=10,validate="key",
                            validatecommand=((pestaña_prod.register(validar_entrada)), "%S"))
 entrada_ndebatch.place(relx=0.1, rely=0.13)
-cuadro = ttk.Treeview(pestaña_prod, columns=("MP","Formula","N° de Batch","Cantidad", "Deposito", "Lote", "Vto","Estado","id"))
+
+label_filtro = ttk.Label(pestaña_prod, text="Filtro")
+label_filtro.place(relx=0.01, rely=0.25)
+filtro = ttk.Combobox(pestaña_prod, width=30)
+filtro.place(relx=0.1, rely=0.25)
+filtro.bind("<<ComboboxSelected>>", partial(filtrar_formula))
+cuadro = ttk.Treeview(pestaña_prod, columns=("MP","Formula","Cantidad", "Deposito", "Lote", "Vto","Estado","id"))
 barra = ttk.Scrollbar(cuadro)
 cuadro.column("#0", width=20, anchor="center")
 cuadro.column("MP", width=80, anchor="center")
 cuadro.column("Formula", width=80, anchor="center")
-cuadro.column("N° de Batch", width=10, anchor="center")
+#cuadro.column("N° de Batch", width=10, anchor="center")
 cuadro.column("Cantidad", width=20, anchor="center")
 cuadro.column("Deposito", width=10, anchor="center")
 cuadro.column("Lote", width=40, anchor="center")
@@ -725,7 +644,7 @@ cuadro.column("id", width=5, anchor="center")
 cuadro.heading("#0", text="Codigo de Produccion")
 cuadro.heading("MP", text="MP")
 cuadro.heading("Formula", text="Formula")
-cuadro.heading("N° de Batch", text="N° de Batch")
+#cuadro.heading("N° de Batch", text="N° de Batch")
 cuadro.heading("Cantidad", text="Cantidad")
 cuadro.heading("Deposito", text="Deposito")
 cuadro.heading("Lote", text="Lote")
@@ -741,14 +660,13 @@ boton_calcular = ttk.Button(pestaña_prod, text="Simular", command = partial(cal
 boton_calcular.place(relx=0.27, rely=0.01)
 boton_nuevo = ttk.Button(pestaña_prod, text="Programar", command = partial (nuevo,"nucleos"))
 boton_nuevo.place(relx=0.8, rely=0.04,relheight = 0.1)
-boton_buscar = ttk.Button(pestaña_prod, text="Buscar", command = partial (buscar,"nucleos"))
-boton_buscar.place(relx=0.27, rely=0.07)
+
 boton_eliminar = ttk.Button(pestaña_prod, text="Eliminar", command = partial (eliminar,"nucleos"))
-boton_eliminar.place(relx=0.27, rely=0.13)
+boton_eliminar.place(relx=0.27, rely=0.07)
 boton_actualizar = ttk.Button(pestaña_prod, text="Actualizar", command=actualizar)
 boton_actualizar.place(relx=0.67, rely=0.07)
 boton_agregar = ttk.Button(pestaña_prod, text="Agregar", command=partial(calcular,"agregar"))
-boton_agregar.place(relx=0.27, rely=0.19)
+boton_agregar.place(relx=0.27, rely=0.13)
 boton_finalizar = ttk.Button(pestaña_prod, text="Finalizar", command = partial (finalizar,"nucleos"))
 boton_finalizar.place(relx=0.9, rely=0.04,relheight = 0.1)
 cuadro_carga = ttk.Treeview(pestaña_carga, columns=("Formula","N° de Batch"))
@@ -791,14 +709,11 @@ combobox_sector = ttk.Combobox(pestaña_carga, width=30, values=["Carga_Cereales
 combobox_sector.place(relx=0.1, rely=0.19)
 boton_agregar_mp = ttk.Button(pestaña_prod, text="Agregar MP", command= agrear_mp)
 boton_agregar_mp.place(relx=0.67, rely=0.12)
-label_ndeba = ttk.Label(pestaña_prod, text="N° de Batch")
-label_ndeba.place(relx=0.4, rely=0.25)
-entrada_ndeba= ttk.Entry(pestaña_prod, width=10,validate="key",
-                           validatecommand=((pestaña_carga.register(validar_entrada)), "%S"))
-entrada_ndeba.place(relx=0.5, rely=0.25)
-check_nulos_value = tk.BooleanVar()
-check_nulos = ttk.Checkbutton(pestaña_prod, text="Mostrar Cargados",variable=check_nulos_value)
-check_nulos.place(relx=0.85, rely=0.2)
+#label_ndeba = ttk.Label(pestaña_prod, text="N° de Batch")
+#label_ndeba.place(relx=0.4, rely=0.25)
+#entrada_ndeba= ttk.Entry(pestaña_prod, width=10,validate="key",
+#                           validatecommand=((pestaña_carga.register(validar_entrada)), "%S"))
+#entrada_ndeba.place(relx=0.5, rely=0.25)
 
 leer_archivo()
 leer_base()

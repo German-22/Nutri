@@ -8,6 +8,7 @@ from reportlab.pdfgen import canvas
 from functools import partial
 from datetime import datetime
 import time
+import random
 ruta_bd = ""
 ruta_txt = ""
 
@@ -81,7 +82,7 @@ def leer_base():
 
 
 def crear_pdf():
-    hora = time.strftime("%H:%M:%S")
+    #hora = time.strftime("%H:%M:%S")
     vto = entrada_vto.get()
     fecha = (entrada_fecha.get())
     mp = selec_mp.get()
@@ -102,7 +103,8 @@ def crear_pdf():
     responsable_deposito = entrada_resp.get()
     observacion = str(entrada_obs.get())
     presentacion = entrada_presentacion.get()
-        
+    calidad = str(random.sample(["Maria Eugenia Tillus", "Daniela Poloni", "Veronica Amuchastegui", "Natalia Martinez", "Sofia Pascua", "Mariano Benitez"],k=1)[0])
+       
     c = canvas.Canvas(str(entrada_ruta_registro.get()) + "/" + str(fecha) + "-" + str(mp)+ "-" + str(lote)+ "-" + str(remito) + ".pdf")
     x = 50
     y = 50
@@ -137,6 +139,7 @@ def crear_pdf():
     c.drawString(305, 545, "Responsable: " + responsable_deposito)
     c.drawString(305, 505, "Presentacion MP: " + presentacion)
     c.drawString(305, 465, "Observaciones: " + observacion)
+    c.drawString(305, 65, "Verifico:  " + calidad)
     c.save()
 
 def seleccionar_deposito(s):
@@ -229,7 +232,8 @@ def recepcionar():
     else:
         messagebox.showinfo(message="Complete todos los Campos", title="Campo Incompleto")
 
-def validar_entrada(numero):        
+def validar_entrada(numero):  
+          
     try:
         int(numero)
         return True
@@ -256,18 +260,21 @@ def validar_entrada_cantidad(numero):
             return False   
 
 def validar_entrada_lote(numero):
-    try:
-        if numero == " " or numero == "/":
-            return False
-        if len(entrada_lote.get()) == 0:
-            if int(numero) == 0:
+    if len(numero) == 1:
+        try:
+            if numero == " " or numero == "/":
                 return False
-            else:
-                return True
-        return True
-    except:
-        return True   
-       
+            if len(entrada_lote.get()) == 0:
+                if int(numero) == 0:
+                    return False
+                else:
+                    return True
+            return True
+        except:
+            return True   
+    else:
+        return False
+
 def seleccionar_mp(s):
     conexion=sqlite3.connect(entrada_ruta.get())
     mp = selec_mp.get()

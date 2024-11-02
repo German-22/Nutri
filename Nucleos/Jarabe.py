@@ -184,14 +184,15 @@ def formula_seleccionada(event,sector):
     if event == "nucleos":
         try:
             conexion=sqlite3.connect(entrada_ruta_bd.get())
-            a = conexion.execute("""SELECT * FROM simulacion WHERE formula = ? and estado != "finalizado";""" ,(combobox.get(),))         
-            b = a.fetchall()
+            a = conexion.execute("""SELECT DISTINCT codprod FROM simulacion WHERE formula = ? and estado != "finalizado";""" ,(combobox.get(),))         
+            b = a.fetchall()            
             cod['state'] = ['enable']
             cod.delete(0,"end")
-            cod.insert(0,b[0][1])
+            cod.insert(0,b[0][0])
             cod['state'] = ['disable']            
-            a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and estado = "programado" ORDER BY ndebatch;""" ,(b[0][1],))         
+            a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and estado = "programado" ORDER BY ndebatch;""" ,(b[0][0],))         
             b = a.fetchall()               
+            conexion.close()             
             
             if b == []:
                 messagebox.showinfo(message="Se Fraccionaron Todas las MP de Esta Produccion", title="Fraccionado Finalizado")
@@ -206,14 +207,15 @@ def formula_seleccionada(event,sector):
     if event == "macro":
         try:
             conexion=sqlite3.connect(entrada_ruta_bd.get())
-            a = conexion.execute("""SELECT * FROM simulacion WHERE formula = ? and estado = "programado";""" , (combobox_macro.get(),))         
+            a = conexion.execute("""SELECT DISTINCT codprod FROM simulacion WHERE formula = ? and estado = "programado";""" , (combobox_macro.get(),))         
             b = a.fetchall()                 
             cod_macro['state'] = ['enable']
             cod_macro.delete(0,"end")
-            cod_macro.insert(0,b[0][1])
+            cod_macro.insert(0,b[0][0])
             cod_macro['state'] = ['disable']            
-            a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and estado = "programado" and cantidad != ?;""" ,(b[0][1],0))         
+            a = conexion.execute("""SELECT * FROM simulacion WHERE codprod = ? and estado = "programado" and cantidad != ?;""" ,(b[0][0],0))         
             b = a.fetchall()         
+            conexion.close()        
            
             for s in cuadro_macro.get_children():
                 cuadro_macro.delete(s)
@@ -426,8 +428,7 @@ def registrar(cantidad,nuevo_stock):
         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?);""" %sector_nucleos,(codprod, n_debatch.get(),fecha, hora, MP_seleccionada, Deposito, lote,vto,cantidad,responsable.get(),sector_nucleos,formula,comentario_nucleo.get()))
         conexion.commit()
         conexion.execute("""UPDATE stock SET stock = ? WHERE mp = ? and lote = ?;""",(nuevo_stock,MP_seleccionada,lote))
-        conexion.commit()
-        
+        conexion.commit()        
         cuadro2.insert("", tk.END, text= fecha,
                 values=(hora, n_batch, MP_seleccionada,cantidad, lote, vto,Deposito))
         cuadro.delete(cuadro.selection())

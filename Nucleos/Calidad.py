@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import *
 from tkinter import ttk,messagebox, filedialog
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from csv import reader, writer
 from reportlab.pdfgen import canvas
 from functools import partial
@@ -43,7 +43,17 @@ def leer_base():
         a = conexion.execute("""SELECT DISTINCT lote FROM recepcion;""") 
         lote['values'] = list(a)
         a = conexion.execute("""SELECT DISTINCT proveedor FROM recepcion;""") 
-        proveedor['values'] = list(a)       
+        proveedor['values'] = list(a)  
+        a = conexion.execute("""SELECT * FROM stock WHERE stock != ? and estado != ?;""",(0,"retenido")) 
+        b = a.fetchall()         
+        
+        for i in b:            
+            if datetime.strptime(str(i[5]), "%Y-%m-%d") < datetime.strptime(str(datetime.now().date() + timedelta(7)),"%Y-%m-%d"):
+                
+                boton_vencimiento.config(bg="red")
+                break
+            elif datetime.strptime(str(i[5]), "%Y-%m-%d") < datetime.strptime(str(datetime.now().date() + timedelta(30)),"%Y-%m-%d"):
+                boton_vencimiento.config(bg="yellow")
         conexion.close()        
     except:
         messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
@@ -223,17 +233,21 @@ def selecionar_ruta(s):
             messagebox.showinfo(message="Error al Configurar la Ruta de Registro", title="Ruta Erronea")
 
 def eliminar():
-    id = cuadro.item(cuadro.selection())["text"]
-    #mp = cuadro.item(cuadro.selection())["values"][1]
-    #deposito = cuadro.item(cuadro.selection())["values"][6]
-    #lote = cuadro.item(cuadro.selection())["values"][2]
-    conexion=sqlite3.connect(entrada_ruta_bd.get())
-    conexion.execute("""DELETE FROM recepcion WHERE id = ?;""",(id,))
-    conexion.commit()
-    ##conexion.execute("""DELETE FROM stock WHERE mp = ? and deposito = ? and lote = ?;""",(mp,deposito,lote))
-    #conexion.commit()
-    conexion.close()  
-    cuadro.delete(cuadro.selection())   
+    estado = cuadro.item(cuadro.selection())["values"][29]
+    if estado == "pendiente":
+        id = cuadro.item(cuadro.selection())["text"]
+        #mp = cuadro.item(cuadro.selection())["values"][1]
+        #deposito = cuadro.item(cuadro.selection())["values"][6]
+        #lote = cuadro.item(cuadro.selection())["values"][2]
+        conexion=sqlite3.connect(entrada_ruta_bd.get())
+        conexion.execute("""DELETE FROM recepcion WHERE id = ?;""",(id,))
+        conexion.commit()
+        ##conexion.execute("""DELETE FROM stock WHERE mp = ? and deposito = ? and lote = ?;""",(mp,deposito,lote))
+        #conexion.commit()
+        conexion.close()  
+        cuadro.delete(cuadro.selection())   
+    else:
+        messagebox.showinfo(message="No se puede Eliminar porque ya esta Liberado", title="Error")
 
 def retener():
     id = cuadro.item(cuadro.selection())["text"]
@@ -329,7 +343,27 @@ def busqueda_remito(letra):
     conexion.close()
     return True
 
-
+def vencimiento():
+    for s in cuadro.get_children():
+            cuadro.delete(s)
+    conexion=sqlite3.connect(entrada_ruta_bd.get())
+    a = conexion.execute("""SELECT * FROM stock WHERE stock != ? and estado != ?;""",(0,"retenido")) 
+    b = a.fetchall()        
+    for e in b:                    
+        if datetime.strptime(str(e[5]), "%Y-%m-%d") < datetime.strptime(str(datetime.now().date() + timedelta(30)),"%Y-%m-%d"):
+            c = conexion.execute("""SELECT * FROM recepcion WHERE mp = ? and lote = ?;""",(str(e[0]), str(e[2])))
+            d = c.fetchall()             
+            for i in d:   
+                if datetime.strptime(str(e[5]), "%Y-%m-%d") < datetime.strptime(str(datetime.now().date() + timedelta(7)),"%Y-%m-%d"):
+                    cuadro.insert("", tk.END, text=i[0], tags=i[0],
+                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31]))
+                    cuadro.tag_configure(i[0],background = 'red')
+                else:
+                    cuadro.insert("", tk.END, text=i[0], tags=i[0],
+                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31]))
+    conexion.close()
+            
+        
 ventana = Tk()
 ventana.protocol("WM_DELETE_WINDOW", cerrar)
 ventana.geometry("1500x800")
@@ -338,7 +372,6 @@ tab_control = ttk.Notebook(ventana, width=1000, height=650)
 tab_control.place(x=0, y=0, relheight=1, relwidth=1)
 pestaña_prod = ttk.Frame(tab_control, borderwidth=10, relief="solid")
 pestaña_prod.place(x=0, y=0, relheight=1, relwidth=1)
-
 pestaña_config = ttk.Frame(tab_control, borderwidth=10, relief="solid")
 pestaña_config.place(x=0, y=0, relheight=1, relwidth=1)
 tab_control.add(pestaña_prod, text="Calidad")
@@ -465,7 +498,6 @@ cuadro.column("Protocolo", anchor="center")
 cuadro.column("Fecha de Elaboracion", width=100, anchor="center")
 cuadro.column("Responsable Calidad",  anchor="center")
 
-
 cuadro.column("ET Revision",anchor="center")
 cuadro.column("Rotulo",anchor="center")
 cuadro.column("Caracteristicas Organolepticas", anchor="center")
@@ -543,6 +575,8 @@ boton_retener= ttk.Button(pestaña_prod, text="Retener", command=retener)
 boton_retener.place(relx=0.76, rely=0.27, relheight=0.07)
 boton_revalidar= ttk.Button(pestaña_prod, text="Revalidar", command=revalidar)
 boton_revalidar.place(relx=0.92, rely=0.25, relheight=0.07)
+boton_vencimiento= Button(pestaña_prod, text="MP Vencida", command=vencimiento)
+boton_vencimiento.place(relx=0.92, rely=0.1, relheight=0.07)
 leer_archivo()
 leer_base()
 ventana.mainloop()
