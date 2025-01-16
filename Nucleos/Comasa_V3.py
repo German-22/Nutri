@@ -9,6 +9,7 @@ from csv import  writer
 from functools import partial
 import Leer_archivo as la
 import sqlite3
+ 
 
 sector_nucleos = ""
 sector_macro = ""
@@ -399,7 +400,7 @@ def actualizar_nucleos():
         for i in b:                    
             suma = suma + i[8]  
         a = conexion.execute("""SELECT formula FROM simulacion WHERE codprod = ?;""",(codprod,))         
-        b = a.fetchall()  
+        b = a.fetchall()        
         
         formula = b[0][0]          
         p = conexion.execute("""SELECT cantidad FROM %s;""" % formula)  
@@ -407,11 +408,22 @@ def actualizar_nucleos():
         total_batch = 0
         for e in o:
             total_batch = total_batch + e[0]
+        a = conexion.execute("""SELECT distinct ndebatch FROM producciones WHERE codprod = ?;""",(codprod,))         
+        b = a.fetchall()  
+        decimal = b[0][0] - int(b[0][0])      
+        
         if total_batch*1.01 >= suma and  total_batch*0.99 <= suma:                   
             conexion.execute("""insert into stock_nucleos (codprod,formula,ndebatch)
                 VALUES(?,?,?);""", (codprod,formula,n_batch))
             conexion.commit()                         
-        conexion.close()         
+            conexion.close()     
+        else:            
+            if decimal*total_batch*1.01 >= suma and  decimal*total_batch*0.99 <= suma:                   
+                conexion.execute("""insert into stock_nucleos (codprod,formula,ndebatch)
+                    VALUES(?,?,?);""", (codprod,formula,n_batch))
+                conexion.commit()                         
+                conexion.close()  
+            conexion.close() 
     except:
         conexion.close()
         messagebox.showinfo(message="Error de Conexion", title="Error")
@@ -439,23 +451,24 @@ def registrar(cantidad,nuevo_stock):
         conexion.execute("""UPDATE simulacion SET cantidad = ? WHERE codprod = ? and mp = ? and lote = ?;""",(float(cant_sim[2]) - cantidad,codprod,MP_seleccionada,lote))
         conexion.commit()            
         cant_sim[2] = float(cant_sim[2]) - cantidad
-        cuadro.item(cuadro.selection(),values=cant_sim)
-    #cuadro.delete(cuadro.selection())
-    #conexion.execute("""UPDATE simulacion SET estado = "cargado" WHERE codprod = ? and ndebatch = ? and lote = ? and mp = ?;""",(codprod,n_batch,lote,MP_seleccionada))
-    #conexion.commit()  
+        cuadro.item(cuadro.selection(),values=cant_sim)     
         conexion.close()
         actualizar_nucleos()     
     except:
         conexion.close()
         messagebox.showinfo(message="Error al Conectar con BD", title="ERROR")                        
-    return
+        return
 
 def sin_balanza(sec):    
-    if(sec == "nucleos"):                    
+    if(sec == "nucleos"):  
+        cant_sim = cuadro.item(cuadro.selection())["values"][2]                  
         cantidad = float(cantidad_pesar.get())
-        nuevo_stock = stock - cantidad        
-        if nuevo_stock>=0:     
-            registrar(cantidad,nuevo_stock) 
+        nuevo_stock = stock - cantidad                  
+        if nuevo_stock>=0:             
+            if float(cant_sim) - cantidad>=0 :
+                registrar(cantidad,nuevo_stock) 
+            else:
+                messagebox.showinfo(message="Esta Registrando mas de lo Necesario", title="ERROR")
         else:
             messagebox.showinfo(message="No hay stock de este lote", title="ERROR")
 
@@ -501,6 +514,7 @@ def sin_balanza(sec):
             messagebox.showinfo(message="Error al Conectar con BD", title="Error")  
             conexion.close()        
     return
+
 
 def con_balanza(t):
     global peso_balanza

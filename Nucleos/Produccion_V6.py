@@ -121,8 +121,7 @@ def calcular(x):
             sector = (i[3])
             reg.append(i[4])
         conexion.close()                
-    except:
-        
+    except:        
         messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")   
     try:
         conexion=sqlite3.connect(entrada_ruta_bd.get())   
@@ -159,17 +158,17 @@ def calcular(x):
                 continue            
                                         
             cant = float(dic_stock[i][m])
-            cant_usar = round(cantidad[k] * ndebatch,3)
-                    
-            while cant - cant_usar < 0:                                                        
-                if len(dic_deposito[i])>m:      
-                                            
+            cant_usar = round(cantidad[k] * ndebatch,3)                    
+            while cant - cant_usar < 0:  
+                                                                    
+                if len(dic_deposito[i])>m:                                           
                     dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),round(cant,3),i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
                     m = m + 1                                   
-                    cant_usar = cant_usar - cant
+                    cant_usar = cant_usar - cant                
                     if len(dic_deposito[i])<=m:
                         messagebox.showinfo(message="No Hay stock de" + " " + i , title="Stock Insuficiente")
                         break
+                    cant = float(dic_stock[i][m])
                 else:
                     messagebox.showinfo(message="No Hay stock de" + " " + i , title="Stock Insuficiente")
                     break  
@@ -177,7 +176,7 @@ def calcular(x):
                 dic_calculo[dic_lote[i][m]] = [entrada_cod_produccion.get(),round(cant_usar,3),i,formula,dic_deposito[i][m],dic_lote[i][m],dic_vto[i][m]]
             
             m = m + 1   
-            k = k + 1          
+            k = k + 1         
         
         s = []    
         for e in dic_calculo:  
@@ -308,7 +307,7 @@ def eliminar(sec):
     
 
 def actualizar():
-    print(cuadro.item(cuadro.selection())["values"])
+    
     id = cuadro.item(cuadro.selection())["values"][7]  
     mp2 = cuadro.item(cuadro.selection())["values"][0]  
     dep = cuadro.item(cuadro.selection())["values"][3]  
