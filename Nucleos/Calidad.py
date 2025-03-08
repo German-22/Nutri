@@ -272,27 +272,31 @@ def revalidar():
     id = cuadro.item(cuadro.selection())["text"]
     rev = entrada_revalida.get()
     if len(rev)==10:
-            dia = rev[0:2]
-            mes = rev[3:5]
-            año = rev[6:10]        
-            rev = (año) + "-" + (mes) + "-" + (dia)                  
-            try:            
-                datetime.strptime(rev, "%Y-%m-%d")            
-            except:            
-                messagebox.showinfo(message="Error en Fecha de Vto", title="Error de Fecha")
-                return    
-    conexion=sqlite3.connect(entrada_ruta_bd.get())
-    conexion.execute("""UPDATE recepcion SET vto = ? WHERE id = ?;""",(rev +" revalidado",id))
-    conexion.commit()
-    a = conexion.execute("""SELECT * FROM recepcion WHERE id = ?;""",(id,))
-    b = a.fetchall()
-    conexion.execute("""UPDATE stock SET vto = ?, estado = "liberado" WHERE mp = ? and lote = ?;""",(rev,b[0][2],b[0][3]))
-    conexion.commit()
-    conexion.close()     
-    lista = cuadro.item(cuadro.selection())["values"]
-    lista[29]=str(rev +" revalidado")
-    lista[20]=str(entrada_responsable.get())
-    cuadro.item(cuadro.selection(),values=lista) 
+        dia = rev[0:2]
+        mes = rev[3:5]
+        año = rev[6:10]        
+        rev = (año) + "-" + (mes) + "-" + (dia)                  
+        try:            
+            datetime.strptime(rev, "%Y-%m-%d")            
+        except:            
+            messagebox.showinfo(message="Error en Fecha de Vto", title="Error de Fecha")
+            return    
+        conexion=sqlite3.connect(entrada_ruta_bd.get())
+        conexion.execute("""UPDATE recepcion SET vto = ? WHERE id = ?;""",(rev +" revalidado",id))
+        conexion.commit()
+        a = conexion.execute("""SELECT * FROM recepcion WHERE id = ?;""",(id,))
+        b = a.fetchall()
+        conexion.execute("""UPDATE stock SET vto = ?, estado = "liberado" WHERE mp = ? and lote = ?;""",(rev,b[0][2],b[0][3]))
+        conexion.commit()
+        conexion.close()     
+        lista = cuadro.item(cuadro.selection())["values"]
+        lista[29]=str(rev +" revalidado")
+        lista[20]=str(entrada_responsable.get())
+        cuadro.item(cuadro.selection(),values=lista) 
+    else:
+        messagebox.showinfo(message="Error en Fecha de Vto", title="Error de Fecha")
+        return    
+
 
 def validar_entrada(numero):        
     try:
@@ -312,7 +316,12 @@ def busqueda_mp(letra):
     b = a.fetchall() 
     for i in b:
         if mp.get() in str(i[2]).lower():
-            cuadro.insert("", tk.END, text=i[0],
+            if datetime.strptime(str(i[5][0:10]), "%Y-%m-%d") < datetime.strptime(str(datetime.now().date()),"%Y-%m-%d"):
+                cuadro.insert("", tk.END, text=i[0],tags=i[0],
+                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31]))
+                cuadro.tag_configure(i[0],background = 'red')
+            else:
+                cuadro.insert("", tk.END, text=i[0],tags=i[0],
                             values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31]))
     conexion.close()
     return True
@@ -325,9 +334,14 @@ def busqueda_lote(letra):
     b = a.fetchall() 
     for i in b:
         if lote.get() in str(i[3]).lower():
-            cuadro.insert("", tk.END, text=i[0],
+            if datetime.strptime(str(i[5][0:10]), "%Y-%m-%d") < datetime.strptime(str(datetime.now().date()),"%Y-%m-%d"):
+                cuadro.insert("", tk.END, text=i[0],tags=i[0],
                             values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31]))
-    conexion.close()
+                cuadro.tag_configure(i[0],background = 'red')
+            else:
+                cuadro.insert("", tk.END, text=i[0],tags=i[0],
+                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31]))
+                conexion.close()
     return True
 
 def busqueda_remito(letra):
@@ -338,8 +352,13 @@ def busqueda_remito(letra):
     b = a.fetchall() 
     for i in b:
         if nderemito.get() in str(i[8]).lower():
-            cuadro.insert("", tk.END, text=i[0],
+            if datetime.strptime(str(i[5][0:10]), "%Y-%m-%d") < datetime.strptime(str(datetime.now().date()),"%Y-%m-%d"):
+                cuadro.insert("", tk.END, text=i[0],tags=i[0],
                             values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31]))
+                cuadro.tag_configure(i[0],background = 'red')
+            else:
+                cuadro.insert("", tk.END, text=i[0],tags=i[0],
+                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31]))                    
     conexion.close()
     return True
 

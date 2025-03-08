@@ -327,6 +327,12 @@ boton_iniciar_macro.configure(command = partial(iniciar, "macro",boton1,combobox
 cuadro_macro.bind("<<TreeviewSelect>>",partial(mp_seleccionada,"macro",cuadro,entrada_ruta_bd,deposito_selec,mp_selec,combobox_lote,cantidad_pesar,n_debatch,cuadro_macro,deposito_macro_selec,mp_selec_macro,combobox_lote_macro,cantidad_pesar_macro,ndebatch_macro))
 boton_pesar_macro.configure(command=partial(pesar,"macro",combobox_lote,responsable_macro,combobox_lote_macro,mp_selec_macro,cantidad_pesar_macro,cuadro_macro,responsable,n_debatch,cuadro,mp_selec,entrada_ruta_bd,cuadro_macro2,comentario_macro,ndebatch_macro,cantidad_pesar,cod_macro,deposito_macro_selec,combobox_macro,cod,deposito_selec,combobox,comentario_nucleo,cuadro2))
 sele_sector.bind("<<ComboboxSelected>>", partial(seleccionar_sector,sele_sector,ruta_base,ruta_sector,entrada_ruta_bd))
+cuadro.heading("#0",command=partial(ordenar,"batch",cuadro,cuadro_macro,cuadro2,cuadro_macro2))
+cuadro.heading("MP",command=partial(ordenar,"mp",cuadro,cuadro_macro,cuadro2,cuadro_macro2))
+cuadro2.heading("MP",command=partial(ordenar,"mp_reg",cuadro,cuadro_macro,cuadro2,cuadro_macro2))
+cuadro_macro.heading("MP",command=partial(ordenar,"mp_macro",cuadro,cuadro_macro,cuadro2,cuadro_macro2))
+cuadro_macro.heading("#0",command=partial(ordenar,"batch_macro",cuadro,cuadro_macro,cuadro2,cuadro_macro2))
+
 leer_archivo(ruta_base,ruta_sector,entrada_ruta_bd,sele_sector)
 leer_base(entrada_ruta_bd,sele_sector,combobox,combobox_carga,combobox_macro,entrada_puerto_chico,entrada_puerto_grande,des_balanza_grande,desactivar_balanza_chica,boton_ruta_bd)
 

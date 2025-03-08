@@ -324,6 +324,7 @@ def actualizar():
     b = a.fetchall()  
     
     if float(b[0][1]) >= float(cantidad):  
+        
         conexion.execute("""UPDATE stock SET stocksim = ? WHERE mp = ? and lote = ? and deposito = ?;""",(float(b[0][1])-float(cantidad),mp,lote,deposito))
         conexion.commit()
         conexion.execute("""UPDATE stock SET stocksim = (stocksim+?) WHERE mp = ? and lote = ? and deposito = ?;""",(float(can),mp2,lot,dep))
@@ -551,7 +552,7 @@ def filtrar_formula(s):
     b = a.fetchall()  
     for i in b:
         cuadro.insert("", tk.END, text=i[1],
-                                values=(i[3],i[2],i[6],i[4],i[5],i[7],i[9],i[0]))
+                                values=(i[3],i[2],round(i[6],3),i[4],i[5],i[7],i[9],i[0]))
     conexion.close()
    
 

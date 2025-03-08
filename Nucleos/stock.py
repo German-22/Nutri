@@ -71,7 +71,7 @@ def buscar(s,t):
             b = a.fetchall()        
         for i in b:
             cuadro.insert("", tk.END, text=i[0],
-                                values=(i[2],i[5],i[3],i[1],i[6]))
+                                values=(i[2],i[5],round(i[3],3),round(i[4],3),i[1],i[6]))
         conexion.close()
     if s == "lote":
         for s in cuadro.get_children():
@@ -86,7 +86,7 @@ def buscar(s,t):
 
         for i in b:
             cuadro.insert("", tk.END, text=i[0],
-                                values=(i[2],i[5],i[3],i[1],i[6]))
+                               values=(i[2],i[5],round(i[3],3),round(i[4],3),i[1],i[6]))
         conexion.close()
     if s == "deposito":
         for s in cuadro.get_children():
@@ -100,7 +100,7 @@ def buscar(s,t):
             b = a.fetchall()  
         for i in b:
             cuadro.insert("", tk.END, text=i[0],
-                                values=(i[2],i[5],i[3],i[1],i[6]))
+                                values=(i[2],i[5],round(i[3],3),round(i[4],3),i[1],i[6]))
         conexion.close()
     
 def exportar():
@@ -155,7 +155,7 @@ def actualizar():
     nuevo_stock = (entrada_stock.get())
     lote = cuadro.item(cuadro.selection())["values"][0]
     mp =  cuadro.item(cuadro.selection())["text"]    
-    deposito = cuadro.item(cuadro.selection())["values"][3]    
+    deposito = cuadro.item(cuadro.selection())["values"][4]    
     lista = cuadro.item(cuadro.selection())["values"]       
     lista[2]=float(nuevo_stock)          
     cuadro.item(cuadro.selection(),values=lista)  
@@ -165,9 +165,11 @@ def actualizar():
         if nuevo_stock == 0:
             conexion.execute("""UPDATE stock SET stock = ?, stocksim = ?, estado = "agotado"  WHERE mp = ? and lote = ? and deposito = ?;""",(nuevo_stock,nuevo_stock,mp,lote,deposito))
             conexion.commit()            
-        else:            
+        else:   
+                     
             conexion.execute("""UPDATE stock SET stock = ?, stocksim = ?,estado = "liberado" WHERE mp = ? and lote = ? and deposito = ?;""",(nuevo_stock,nuevo_stock,mp,lote,deposito))
             conexion.commit()
+            
     conexion.close()    
     return
 
@@ -183,7 +185,7 @@ def busqueda_mp(le):
         b = a.fetchall() 
     for i in b:
         if combobox.get() in str(i[0]).lower():
-            cuadro.insert("", tk.END, text=i[0],values=(i[2],i[5],i[3],i[1],i[6]))
+            cuadro.insert("", tk.END, text=i[0],values=(i[2],i[5],round(i[3],3),round(i[4],3),i[1],i[6]))
     conexion.close()
     return True
 
@@ -199,7 +201,7 @@ def busqueda_lote(letra):
         b = a.fetchall() 
     for i in b:
         if combobox_lote.get() in str(i[2]).lower():
-            cuadro.insert("", tk.END, text=i[0],values=(i[2],i[5],i[3],i[1],i[6]))
+            cuadro.insert("", tk.END, text=i[0],values=(i[2],i[5],round(i[3],3),round(i[4],3),i[1],i[6]))
     conexion.close()
     return True
 
@@ -259,11 +261,12 @@ combobox_lote.bind("<Return>", partial(busqueda_lote))
 combobox_deposito = ttk.Combobox(pestaña_prod, width=40)
 combobox_deposito.place(relx=0.11, rely=0.36)
 combobox_deposito.bind("<<ComboboxSelected>>", partial(buscar,"deposito"))
-cuadro = ttk.Treeview(pestaña_prod, columns=("Lote","Vto","Stock", "Deposito","Estado"))
+cuadro = ttk.Treeview(pestaña_prod, columns=("Lote","Vto","Stock","StockSim", "Deposito","Estado"))
 cuadro.column("#0", width=80, anchor="center")
 cuadro.column("Lote", width=30, anchor="center")
 cuadro.column("Vto", width=10, anchor="center")
 cuadro.column("Stock", width=10, anchor="center")
+cuadro.column("StockSim", width=10, anchor="center")
 cuadro.column("Deposito", width=10, anchor="center")
 cuadro.column("Estado", width=10, anchor="center")
 
@@ -271,6 +274,7 @@ cuadro.heading("#0", text="MP")
 cuadro.heading("Lote", text="Lote")
 cuadro.heading("Vto", text="Vto")
 cuadro.heading("Stock", text="Stock")
+cuadro.heading("StockSim", text="StockSim")
 cuadro.heading("Deposito", text="Deposito")
 cuadro.heading("Estado", text="Estado")
 barra = ttk.Scrollbar(cuadro,orient=tk.VERTICAL)
