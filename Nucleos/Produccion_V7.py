@@ -248,7 +248,7 @@ def buscar(sec):
 def seleccion(g,h):    
     try:        
         codprod = cuadro.item(cuadro.selection())["text"]
-        formula = cuadro.item(cuadro.selection())["values"][1]
+        formula = cuadro.item(cuadro.selection())["values"][0]
         entrada_cod_produccion.delete(0,"end")
         entrada_ndebatch.delete(0,"end")
         combobox.delete(0,"end")
@@ -405,8 +405,6 @@ def selec_formula(s,sector):
         conexion.close()
 
 
-    
-   
 def filtrar_opciones(formula,opciones,s):    
     if opciones == "mp":
         opcion = opciones_mp
