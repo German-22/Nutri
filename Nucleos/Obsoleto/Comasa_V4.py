@@ -1,9 +1,9 @@
-from Funciones  import *
+from Nutri.Nucleos.Obsoleto.Funciones  import *
 from tkinter import ttk
 from tkinter import *
 from functools import partial
 ruta_base = "archivo_bd.txt"
-ruta_sector = "archivo_sector_jarabe.txt"
+ruta_sector = "archivo_sector_comasa.txt"
 
 ventana = Tk()
 ventana.protocol("WM_DELETE_WINDOW", lambda:cerrar(ventana))
@@ -85,8 +85,8 @@ cuadro.column("MP", width=100, anchor="center")
 cuadro.column("Cantidad", width=30, anchor="center")
 cuadro.column("Lote", width=30, anchor="center")
 cuadro.column("Deposito", width=200, anchor="center")
-cuadro.heading("#0", text="N° de Batch",command=lambda: ordenar("batch"))
-cuadro.heading("MP", text="MP",command=lambda: ordenar("mp"))
+cuadro.heading("#0", text="N° de Batch")
+cuadro.heading("MP", text="MP")
 cuadro.heading("Lote", text="Lote")
 cuadro.heading("Cantidad", text="Cantidad")
 cuadro.heading("Deposito", text="Deposito")
@@ -109,8 +109,8 @@ cuadro_macro.column("MP", width=100)
 cuadro_macro.column("Cantidad", width=100, anchor="center")
 cuadro_macro.column("Lote", width=200, anchor="center")
 cuadro_macro.column("Deposito", width=200, anchor="center")
-cuadro_macro.heading("#0", text="N° de Batch",command=lambda: ordenar("batch_macro"))
-cuadro_macro.heading("MP", text="MP",command=lambda: ordenar("mp_macro"))
+cuadro_macro.heading("#0", text="N° de Batch")
+cuadro_macro.heading("MP", text="MP")
 cuadro_macro.heading("Cantidad", text="Cantidad")
 cuadro_macro.heading("Lote", text="Lote")
 cuadro_macro.heading("Deposito", text="Deposito")
@@ -219,7 +219,7 @@ cuadro2.column("Deposito", width=100, anchor="center")
 cuadro2.heading("#0", text="Fecha")
 cuadro2.heading("N° de Batch", text="N° de Batch",command=lambda: ordenar("batch_reg",cuadro,cuadro_macro,cuadro2,cuadro_macro2))
 cuadro2.heading("Hora", text="Hora")
-cuadro2.heading("MP", text="MP",command=lambda: ordenar("mp_reg"))
+cuadro2.heading("MP", text="MP")
 cuadro2.heading("Cantidad", text="Cantidad")
 cuadro2.heading("Lote", text="lote", )
 cuadro2.heading("Vencimiento", text="Vencimiento", )
@@ -332,7 +332,6 @@ cuadro.heading("MP",command=partial(ordenar,"mp",cuadro,cuadro_macro,cuadro2,cua
 cuadro2.heading("MP",command=partial(ordenar,"mp_reg",cuadro,cuadro_macro,cuadro2,cuadro_macro2))
 cuadro_macro.heading("MP",command=partial(ordenar,"mp_macro",cuadro,cuadro_macro,cuadro2,cuadro_macro2))
 cuadro_macro.heading("#0",command=partial(ordenar,"batch_macro",cuadro,cuadro_macro,cuadro2,cuadro_macro2))
-
 leer_archivo(ruta_base,ruta_sector,entrada_ruta_bd,sele_sector)
 leer_base(entrada_ruta_bd,sele_sector,combobox,combobox_carga,combobox_macro,entrada_puerto_chico,entrada_puerto_grande,des_balanza_grande,desactivar_balanza_chica,boton_ruta_bd)
 

@@ -11,6 +11,9 @@ ruta_txt = "/archnucl"
 import sys
 sector = ""
 dic_res_stock = {}
+opciones_formula = []
+opciones_mp = []
+
 def leer_archivo():
     bd = la.Leer_archivo("archivo_bd.txt")   
     archivo_bd = bd.leer()
@@ -29,12 +32,16 @@ def leer_archivo():
         messagebox.showinfo(message="Configure la Ruta a la Carpeta de Registros", title="Ruta Erronea")
 
 def leer_base():
+    global  opciones_formula
+    global  opciones_mp
     try:
         conexion=sqlite3.connect(entrada_ruta_bd.get())
-        a = conexion.execute("""SELECT nombre FROM formulas;""")         
-        formula['values'] = list(a)   
-        a = conexion.execute("""SELECT mp FROM mp;""")         
-        mp['values'] = list(a)         
+        a = conexion.execute("""SELECT nombre FROM formulas;""")                
+        opciones_formula =  a.fetchall()         
+        formula['values'] = opciones_formula        
+        a = conexion.execute("""SELECT mp FROM mp;""")  
+        opciones_mp =  a.fetchall()        
+        mp['values'] = opciones_mp         
         conexion.close()      
     except:
         messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
@@ -185,14 +192,15 @@ def buscar(s):
                     cuadro2_fecha.insert("", tk.END, text=i[0],
                                     values=(i[11],i[2],i[3],"-",i[4],i[6],i[7],i[5],kg,i[9],i[12]))
 
-              
+          
 def exportar(s):    
     if s == "formula":        
         try:   
             ruta = entrada_ruta_registro.get()
-            codprod = cuadro2.item(cuadro2.selection())["text"]             
+                    
             form = formula.get()
-            with open(ruta + "/" + 'reporte' + str(form)+ str(codprod) + '.csv', 'w', newline='') as f:       
+            
+            with open(ruta + "/" + 'reporte' + str(form) + '.csv', 'w', newline='') as f:       
                 writer = csv.writer(f,delimiter=';') 
                 guardar = ["Codigo de Produccion","Formula","Fecha","Hora","N° de Batch","MP","Lote","Vto","Deposito", "Cantida", "Responsable","Comentario"]
                 writer.writerow(guardar)        
@@ -306,7 +314,36 @@ def validar_entrada(numero):
         else:
             return False
     
+def filtrar_opciones(formula,opciones,s):    
+    if opciones == "mp":
+        opcion = opciones_mp
+    else:
+        opcion = opciones_formula
+    
+    entrada = combo_var.get().lower()
+    
+    # Filtrar opciones que contengan el texto
+    filtradas = [op for op in opcion if entrada in op[0].lower()]
+    
+    # Guardar posición del cursor y texto actual
+    cursor_pos = formula.index(tk.INSERT)
+    
+    # Actualizar valores del Combobox
+    formula['values'] = filtradas if filtradas else opcion
+    
+    # Restaurar el texto y la posición del cursor
+    formula.delete(0, tk.END)
+    formula.insert(0, combo_var.get())
+    formula.icursor(cursor_pos)
+    
+    # Autocompletar si hay una sola opción
+    if len(filtradas) == 1:
+        formula.delete(0, tk.END)
+        formula.insert(0, filtradas[0])
+        formula.icursor(tk.END)
 
+    # Mostrar menú desplegable
+    formula.event_generate('<Down>')
 ventana = Tk()
 ventana.protocol("WM_DELETE_WINDOW", cerrar)
 ventana.geometry("1200x600")
@@ -337,11 +374,12 @@ label_mp = ttk.Label(pestaña_mp, text="MP")
 label_mp.place(relx=0.01, rely=0.01)
 label_fecha = ttk.Label(pestaña_fecha, text="FECHA")
 label_fecha.place(relx=0.01, rely=0.01)
+combo_var = tk.StringVar()
 
-formula = ttk.Combobox(pestaña_prod, width=40)
+formula = ttk.Combobox(pestaña_prod, width=40,textvariable=combo_var)
 formula.place(relx=0.07, rely=0.01)
 formula.bind("<<ComboboxSelected>>", partial(buscar_formula))
-
+formula.bind('<Return>', partial(filtrar_opciones,formula,"formula"))
 cuadro = ttk.Treeview(pestaña_prod, columns=("Formula","Fecha","Hora","N° de Batch","MP","Lote","Vto","Deposito","Cantidad","Responsable","Comentario","N° Nucleo","Cod_Nucleo"))
 cuadro.column("#0", width=20, anchor="center")
 cuadro.column("Formula", width=20, anchor="center")
@@ -406,10 +444,10 @@ entrada_ruta_registro.place(relx=0.27, rely=0.3)
 configurar_ruta_registro = ttk.Button(pestaña_config,command = partial(selecionar_ruta,"registro"),text="Conf. Ruta")
 configurar_ruta_registro.place(relx=0.8, rely=0.3)
 
-mp = ttk.Combobox(pestaña_mp, width=40)
+mp = ttk.Combobox(pestaña_mp, width=40,textvariable=combo_var)
 mp.place(relx=0.07, rely=0.01)
 mp.bind("<<ComboboxSelected>>", partial(buscar_mp))
-
+mp.bind('<Return>', partial(filtrar_opciones,mp,"mp"))
 
 cuadro_mp = ttk.Treeview(pestaña_mp, columns=("Lote","Deposito"))
 cuadro_mp.column("#0", width=20, anchor="center")

@@ -343,7 +343,7 @@ def iniciar(sl,boton1,combobox,entrada_ruta_bd,cuadro2,cod,n_debatch,combobox_lo
                 cuadro2.delete(s)
             
             for i in b:
-                cuadro2.insert("", tk.END, text=i[3], values=(i[3],i[1],i[4],i[8],i[6],i[7],i[5]))
+                cuadro2.insert("", tk.END, text=i[2], values=(i[3],i[1],i[4],i[8],i[6],i[7],i[5]))
             conexion.close
             boton1["state"] = ["disable"]
             combobox["state"] = ["disable"]
@@ -827,7 +827,7 @@ def eliminar_carga(cuadro_carga2,entrada_ruta_bd,cuadro_carga):
     actualizar(entrada_ruta_bd,cuadro_carga)
     
 def autenticar(entrada_contraseña,boton_pesar,deposito_selec,deposito_macro_selec,mp_selec,combobox_lote,boton_pesar_macro,mp_selec_macro,combobox_lote_macro,sele_sector,boton_ruta_bd,entrada_ruta_bd,entrada_puerto_grande,entrada_puerto_chico):
-    if(entrada_contraseña.get()=="nutri23"):
+    if(entrada_contraseña.get()=="ntc25"):
         entrada_ruta_bd["state"] = ["enable"]        
         entrada_puerto_grande["state"] = ["enable"]
         entrada_puerto_chico["state"] = ["enable"]        
