@@ -263,7 +263,7 @@ def mp_seleccionada(w,cuadro,entrada_ruta_bd,deposito_selec,mp_selec,combobox_lo
                 return
             lista_lote = []           
             conexion=sqlite3.connect(entrada_ruta_bd.get())
-            a = conexion.execute("""SELECT * FROM stock WHERE  mp = ? and estado = "liberado" ORDER BY vto;""", (MP_seleccionada,))         
+            a = conexion.execute("""SELECT * FROM stock WHERE  mp = ? and stock > ? and estado = "liberado" ORDER BY vto;""", (MP_seleccionada, 0.0001))         
             b = a.fetchall()
             for i in b:
                 lista_lote.append(i[2])
@@ -281,7 +281,7 @@ def mp_seleccionada(w,cuadro,entrada_ruta_bd,deposito_selec,mp_selec,combobox_lo
             #cantidad_pesar["state"] = "disable"             
             n_debatch.delete("0", "end") 
             mostrar_stock.delete(0, tk.END)  
-            mostrar_stock.insert(0,round(b[0][3],2)) 
+            mostrar_stock.insert(0,round(b[0][3],4)) 
 
             conexion.close()
             

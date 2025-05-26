@@ -3,7 +3,7 @@ from tkinter import ttk
 from tkinter import *
 from functools import partial
 ruta_base = "archivo_bd.txt"
-ruta_sector = "archivo_sector_cereales.txt"
+ruta_sector = "archivo_sector_comasa.txt"
 
 ventana = Tk()
 ventana.protocol("WM_DELETE_WINDOW", lambda:cerrar(ventana))
