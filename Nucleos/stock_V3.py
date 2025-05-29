@@ -157,11 +157,17 @@ def actualizar():
     if nuevo_stock == "":
         messagebox.showinfo(message="Ingrese Nuevo Stock", title="Error")
         return
-    lote = cuadro.item(cuadro.selection())["values"][0]
-    mp =  cuadro.item(cuadro.selection())["text"]    
-    deposito = cuadro.item(cuadro.selection())["values"][4]    
-    stockant = cuadro.item(cuadro.selection())["values"][2]
-    stocksim = cuadro.item(cuadro.selection())["values"][3]
+    if responsable.get() == "":
+        messagebox.showinfo(message="Ingrese Responsable", title="Error")
+        return
+    try:
+        lote = cuadro.item(cuadro.selection())["values"][0]
+        mp =  cuadro.item(cuadro.selection())["text"]    
+        deposito = cuadro.item(cuadro.selection())["values"][3]    
+        stockant = cuadro.item(cuadro.selection())["values"][2]
+    except:
+        messagebox.showinfo(message="Seleccione MP", title="Error")
+    
     lista = cuadro.item(cuadro.selection())["values"]       
     lista[2]=float(nuevo_stock)          
     cuadro.item(cuadro.selection(),values=lista)  
@@ -169,22 +175,19 @@ def actualizar():
     hora = time.strftime("%H:%M:%S")
     respon = responsable.get()
     conexion=sqlite3.connect(entrada_ruta_bd.get())    
-    if responsable.get() != "":
-        if nuevo_stock != "":        
-            nuevo_stock = float(nuevo_stock)
-            if nuevo_stock == 0:
-                conexion.execute("""UPDATE stock SET stock = ?, estado = "agotado"  WHERE mp = ? and lote = ? and deposito = ?;""",(nuevo_stock,mp,lote,deposito))
-                conexion.commit()            
-            else:   
-                        
-                conexion.execute("""UPDATE stock SET stock = ?,estado = "liberado" WHERE mp = ? and lote = ? and deposito = ?;""",(nuevo_stock,mp,lote,deposito))
-                conexion.commit()
-        conexion.execute("""insert into registro_cambios (fecha,hora,mp,lote,deposito,stockant,nuevostock,responsable, programa)
-                    VALUES(?,?,?,?,?,?,?,?,?);""",(fecha,hora, mp, lote,deposito,stockant,nuevo_stock,respon, "stock"))
+    
+    nuevo_stock = float(nuevo_stock)
+    if nuevo_stock == 0:
+        conexion.execute("""UPDATE stock SET stock = ?, estado = "agotado"  WHERE mp = ? and lote = ? and deposito = ?;""",(nuevo_stock,mp,lote,deposito))
+        conexion.commit()            
+    else:                   
+        conexion.execute("""UPDATE stock SET stock = ?,estado = "liberado" WHERE mp = ? and lote = ? and deposito = ?;""",(nuevo_stock,mp,lote,deposito))
         conexion.commit()
-        conexion.close()    
-    else:
-        messagebox.showinfo(message="Ingrese Responsable", title="Error")
+    conexion.execute("""insert into registro_cambios (fecha,hora,mp,lote,deposito,stockant,nuevostock,responsable, programa)
+                VALUES(?,?,?,?,?,?,?,?,?);""",(fecha,hora, mp, lote,deposito,stockant,nuevo_stock,respon, "stock"))
+    conexion.commit()
+    conexion.close()    
+
     return
 
 def busqueda_mp(le):
@@ -199,7 +202,7 @@ def busqueda_mp(le):
         b = a.fetchall() 
     for i in b:
         if combobox.get() in str(i[0]).lower():
-            cuadro.insert("", tk.END, text=i[0],values=(i[2],i[5],round(i[3],3),round(i[4],3),i[1],i[6]))
+            cuadro.insert("", tk.END, text=i[0],values=(i[2],i[5],round(float(i[3]),3),i[1],i[6]))
     conexion.close()
     return True
 
@@ -242,6 +245,19 @@ def exportar_cambios():
                 guardar.append(t)
             writer.writerow(guardar)   
     
+def validar_entrada(numero):
+    try:
+        float(numero)
+        return True
+    except:
+        if numero == ".":
+            return True
+        else:
+            try:
+                int(numero)
+                return True
+            except:
+                return False
 
 ventana = Tk()
 ventana.protocol("WM_DELETE_WINDOW", cerrar)
@@ -317,7 +333,8 @@ configurar_ruta_registro = ttk.Button(pestaña_config,command = partial(selecion
 configurar_ruta_registro.place(relx=0.8, rely=0.3)
 boton_act = ttk.Button(pestaña_prod,text="Actualizar Stock", command= actualizar)
 boton_act.place(relx=0.7, rely=0.2,relheight=0.07)
-entrada_stock = ttk.Entry(pestaña_prod, width=10)
+entrada_stock = ttk.Entry(pestaña_prod, width=10,validate="key",
+                           validatecommand=((pestaña_prod.register(validar_entrada)), "%S"))
 entrada_stock.place(relx=0.6, rely=0.22)
 
 label_contraseña = ttk.Label(pestaña_config, text="Contraseña")

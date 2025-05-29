@@ -187,10 +187,12 @@ def nuevo(sec):
         e = conexion.execute("""SELECT ndebatch FROM producciones WHERE codprod = ?;""",(codprod,))
         f = e.fetchall()    
         if f == []:
+            
             conexion.execute("""insert into producciones (codprod,formula,sector,ndebatch,estado)
                 VALUES(?,?,?,?,?);""",(codprod, formula, sector, entrada_ndebatch.get(),"programado"))
             conexion.commit() 
         else:
+            
             conexion.execute("""UPDATE producciones set ndebatch = ? WHERE codprod = ?;""",(float(f[0][0])+ float(entrada_ndebatch.get()), codprod))
             conexion.commit()      
         conexion.close()
@@ -245,33 +247,6 @@ def buscar(sec):
                                 values=(i[1],i[3]))
         conexion.close()
 
-def seleccion(g,h):    
-    try:        
-        codprod = cuadro.item(cuadro.selection())["text"]
-        formula = cuadro.item(cuadro.selection())["values"][0]
-        entrada_cod_produccion.delete(0,"end")
-        entrada_ndebatch.delete(0,"end")
-        combobox.delete(0,"end")
-        combobox.set("")
-        combobox.set(formula)
-        entrada_cod_produccion.insert(0,str(codprod))
-        conexion=sqlite3.connect(entrada_ruta_bd.get())
-        a = conexion.execute("""SELECT ndebatch FROM simulacion WHERE codprod = ? and estado = "simulado" ORDER BY ndebatch desc;""",(codprod,))  
-        b = a.fetchall() 
-        if b != []:       
-            ndebatch_sim = b[0][0]   
-        else:
-            return
-        a = conexion.execute("""SELECT ndebatch FROM simulacion WHERE codprod = ? and estado = "programado" ORDER BY ndebatch desc;""",(codprod,))
-        b = a.fetchall()
-        if b != []:
-            ndebatch_prog=b[0][0]
-        else:
-            return         
-        entrada_ndebatch.insert(0,int(ndebatch_sim)-int(ndebatch_prog))
-        conexion.close()
-    except:
-        None
 
 def finalizar(sec):
     fecha = time.strftime("%d/%m/%y")
@@ -511,7 +486,7 @@ cuadro.heading("N° de Batch", text="N° de Batch")
 cuadro.config(yscrollcommand=barra.set)
 barra.config(command=cuadro.yview)
 cuadro.place(relx=0.01, rely=0.3, relwidth=0.98, relheight=0.6)
-cuadro.bind("<<TreeviewSelect>>",partial(seleccion,""))
+
 barra.place(relx=0.97, rely=0.08, relheight=0.9)
 boton_calcular = ttk.Button(pestaña_prod, text="Simular", command = partial(calcular,""))
 boton_calcular.place(relx=0.5, rely=0.005,relheight = 0.08)
@@ -528,7 +503,7 @@ cuadro_carga.heading("#0", text="Codigo de Produccion")
 cuadro_carga.heading("Formula", text="Formula")
 cuadro_carga.heading("N° de Batch", text="N° de Batch")
 cuadro_carga.place(relx=0.26, rely=0.4, relwidth=0.5, relheight=0.5)
-cuadro_carga.bind("<<TreeviewSelect>>",partial(seleccion,""))
+
 boton_nuevo_carga = ttk.Button(pestaña_carga, text="Nuevo", command = partial(nuevo,"carga"))
 boton_nuevo_carga.place(relx=0.35, rely=0.01,relheight = 0.07)
 boton_buscar_carga = ttk.Button(pestaña_carga, text="Buscar", command= partial(buscar,"carga"))
