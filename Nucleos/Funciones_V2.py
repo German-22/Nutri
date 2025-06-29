@@ -178,16 +178,21 @@ def seleccionar_sector(sele_sector,base,sector,entrada_ruta_bd,s):
     except:
         messagebox.showinfo(message="Error al Configurar la Ruta", title="Ruta Erronea")
 
-def formula_seleccionada(event,entrada_ruta_bd,cod,cuadro,cod_macro,cuadro_macro,ndebatch_carga,cuadro_carga2,combobox,combobox_macro,combobox_carga,h):
+def formula_seleccionada(event,entrada_ruta_bd,cod,cuadro,cod_macro,cuadro_macro,ndebatch_carga,cuadro_carga2,combobox,combobox_macro,combobox_carga,nb,nbm,h):
     if event == "nucleos":
         try:
             conexion=sqlite3.connect(entrada_ruta_bd.get())
-            a = conexion.execute("""SELECT codprod FROM producciones WHERE formula = ? and estado != "finalizado";""" ,(combobox.get(),))         
+            a = conexion.execute("""SELECT codprod, ndebatch FROM producciones WHERE formula = ? and estado != "finalizado";""" ,(combobox.get(),))         
             b = a.fetchall()                        
             cod['state'] = ['enable']
             cod.delete(0,"end")
             cod.insert(0,b[0][0])
-            cod['state'] = ['disable']            
+            cod['state'] = ['disable'] 
+            nb['state'] = ['enable']
+            nb.delete(0,"end")
+            nb.insert(0,b[0][1])
+            nb['state'] = ['disable']                     
+
             a = conexion.execute("""SELECT * FROM %s;"""% combobox.get())         
             b = a.fetchall()               
             conexion.close()         
@@ -201,13 +206,17 @@ def formula_seleccionada(event,entrada_ruta_bd,cod,cuadro,cod_macro,cuadro_macro
     if event == "macro":
         try:
             conexion=sqlite3.connect(entrada_ruta_bd.get())
-            a = conexion.execute("""SELECT codprod FROM producciones WHERE formula = ? and estado != "finalizado";""" ,(combobox_macro.get(),))         
+            a = conexion.execute("""SELECT codprod, ndebatch FROM producciones WHERE formula = ? and estado != "finalizado";""" ,(combobox_macro.get(),))         
             b = a.fetchall() 
                     
             cod_macro['state'] = ['enable']
             cod_macro.delete(0,"end")
             cod_macro.insert(0,b[0][0])
-            cod_macro['state'] = ['disable']            
+            cod_macro['state'] = ['disable']  
+            nbm['state'] = ['enable']
+            nbm.delete(0,"end")
+            nbm.insert(0,b[0][1])
+            nbm['state'] = ['disable']          
             a = conexion.execute("""SELECT * FROM %s;"""% combobox_macro.get())         
             b = a.fetchall()         
             conexion.close()           
@@ -265,8 +274,10 @@ def mp_seleccionada(w,cuadro,entrada_ruta_bd,deposito_selec,mp_selec,combobox_lo
             conexion=sqlite3.connect(entrada_ruta_bd.get())
             a = conexion.execute("""SELECT * FROM stock WHERE  mp = ? and stock > ? and estado = "liberado" ORDER BY vto;""", (MP_seleccionada, 0.0001))         
             b = a.fetchall()
-            for i in b:
-                lista_lote.append(i[2])
+            for i in b:           
+                if datetime.strptime(str(i[5]), "%Y-%m-%d")>datetime.strptime(str(datetime.now().date()),"%Y-%m-%d"):
+                    lista_lote.append(i[2])   
+            
             a = conexion.execute("""SELECT * FROM depositos;""")           
             deposito_selec["values"] = list(a)
             deposito_selec.set(deposito)
@@ -300,10 +311,14 @@ def mp_seleccionada(w,cuadro,entrada_ruta_bd,deposito_selec,mp_selec,combobox_lo
                 return            
             
             conexion=sqlite3.connect(entrada_ruta_bd.get())
-            a = conexion.execute("""SELECT * FROM stock WHERE  mp = ? and estado = "liberado" ORDER BY vto;""", (MP_seleccionada_macro,))         
+            a = conexion.execute("""SELECT * FROM stock WHERE  mp = ? and estado = "liberado" and stock > ? ORDER BY vto;""", (MP_seleccionada_macro,0))         
             b = a.fetchall()
-            for i in list(b):
-                lista_lote_macro.append(i[2])   
+            if b == []:
+                return
+            for i in b:           
+                if datetime.strptime(str(i[5]), "%Y-%m-%d")>datetime.strptime(str(datetime.now().date()),"%Y-%m-%d"):
+                    lista_lote_macro.append(i[2])   
+               
             a = conexion.execute("""SELECT * FROM depositos;""")        
             deposito_macro_selec.delete(0, "end")   
             deposito_macro_selec["values"] = list(a)
@@ -451,14 +466,13 @@ def registrar(cantidad,nuevo_stock,cuadro,mp_selec,cod,combobox_lote,deposito_se
 
 def sin_balanza(sec,cuadro_macro2,comentario_macro,responsable_macro,ndebatch_macro,cuadro_macro,entrada_ruta_bd,cuadro,cantidad_pesar,mp_selec_macro,combobox_lote_macro,cod_macro,cantidad_pesar_macro,deposito_macro_selec,combobox_macro,mp_selec,cod,combobox_lote,deposito_selec,combobox,n_debatch,cuadro2,responsable,comentario_nucleo):    
     if(sec == "nucleos"):  
-        cant_sim = cuadro.item(cuadro.selection())["values"][1]                  
+        #cant_sim = cuadro.item(cuadro.selection())["values"][1]                  
         cantidad = float(cantidad_pesar.get())
         nuevo_stock = stock - cantidad                  
         if nuevo_stock>=0:             
-            if float(cant_sim) - cantidad>=0 :
-                registrar(cantidad,nuevo_stock,cuadro,mp_selec,cod,combobox_lote,deposito_selec,combobox,entrada_ruta_bd,n_debatch,cuadro2,responsable,comentario_nucleo) 
-            else:
-                messagebox.showinfo(message="Esta Registrando mas de lo Necesario", title="ERROR")
+            
+            registrar(cantidad,nuevo_stock,cuadro,mp_selec,cod,combobox_lote,deposito_selec,combobox,entrada_ruta_bd,n_debatch,cuadro2,responsable,comentario_nucleo) 
+            
         else:
             messagebox.showinfo(message="No hay stock de este lote", title="ERROR")
 
@@ -882,10 +896,13 @@ def selec_materiaprima(sector,mp_selec,combobox_lote_macro,mp_selec_macro,entrad
     if sector == "nucleos":
         mp = mp_selec.get()
         conexion=sqlite3.connect(entrada_ruta_bd.get())
-        a = conexion.execute("""SELECT lote FROM stock WHERE  mp = ? and estado = "liberado";""", (mp,))         
+        a = conexion.execute("""SELECT lote,vto FROM stock WHERE  mp = ? and estado = "liberado";""", (mp,))         
         b = a.fetchall()
+        
         for i in b:
-            lote.append(i[0])   
+           
+            if datetime.strptime(str(i[1]), "%Y-%m-%d")>datetime.strptime(str(datetime.now().date()),"%Y-%m-%d"):
+                lote.append(i[0])   
         
         combobox_lote.delete(0, "end")
         combobox_lote.set("")

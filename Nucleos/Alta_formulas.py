@@ -1,3 +1,4 @@
+import tkinter as tk
 from tkinter import *
 from tkinter import ttk,messagebox, filedialog
 import sqlite3
@@ -5,7 +6,7 @@ from csv import reader, writer
 from functools import partial
 import Leer_archivo as la 
 ruta_txt = "/archnucl"
-
+opciones_entrada = []
 
 def leer_archivo():
     bd = la.Leer_archivo("archivo_bd.txt")   
@@ -173,11 +174,14 @@ def eliminar_insumo():
             messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
             
 def seleccionar_deposito(s):
+    global opciones_entrada
     dep = entrada_deposito_for.get()
     try:
         conexion=sqlite3.connect(entrada_ruta.get())
-        a = conexion.execute("""SELECT mp FROM mp WHERE deposito = ?;""", (dep,))         
-        entrada_mp_for['values'] = list(a)           
+        a = conexion.execute("""SELECT mp FROM mp WHERE deposito = ?;""", (dep,))
+        b = a.fetchall()          
+        entrada_mp_for['values'] = sorted(b) 
+        opciones_entrada =  sorted(b) 
         conexion.close()
     except:
         messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion")
@@ -242,6 +246,35 @@ def validar_entrada_nom(numero):
     else:
         return False
             
+def filtrar_opciones(formula,s):    
+
+    opcion = opciones_entrada
+    
+    entrada = combo_var.get().lower()
+        
+    # Filtrar opciones que contengan el texto
+    filtradas = [op for op in opcion if entrada in op[0].lower()]
+    
+    # Guardar posición del cursor y texto actual
+    cursor_pos = formula.index(tk.INSERT)
+    
+    # Actualizar valores del Combobox
+    formula['values'] = filtradas if filtradas else opcion
+    
+    # Restaurar el texto y la posición del cursor
+    formula.delete(0, tk.END)
+    formula.insert(0, combo_var.get())
+    formula.icursor(cursor_pos)
+    
+    # Autocompletar si hay una sola opción
+    if len(filtradas) == 1:
+        formula.delete(0, tk.END)
+        formula.insert(0, filtradas[0])
+        formula.icursor(tk.END)
+
+    # Mostrar menú desplegable
+    formula.event_generate('<Down>')
+
 
 def cerrar():
     ventana.destroy()
@@ -264,17 +297,17 @@ def copiar_formula():
 
 def eliminar_formula():
     nom_for = selec_formula.get()     
-    #try:    
+    try:    
           
-    conexion=sqlite3.connect(entrada_ruta.get())
-    conexion.execute("""drop table if exists %s;""" % nom_for) 
-    conexion.commit()       
-    conexion.execute("""delete from formulas where nombre = ?;""", (nom_for,))
-    conexion.commit()
-    conexion.close()
+        conexion=sqlite3.connect(entrada_ruta.get())
+        conexion.execute("""drop table if exists %s;""" % nom_for) 
+        conexion.commit()       
+        conexion.execute("""delete from formulas where nombre = ?;""", (nom_for,))
+        conexion.commit()
+        conexion.close()
 
-    #xcept:
-    #        messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion") 
+    except:
+            messagebox.showinfo(message="Error al Conectar con Base de Datos", title="Error de Conexion") 
 
 
 ventana = Tk()
@@ -371,7 +404,10 @@ label_cantidad.place(relx=0.52, rely=0.09)
 label_sector.place(relx=0.35, rely=0.01)
 entrada_nombre_for = ttk.Entry(pestaña_formula, width=25,validate="key",
                            validatecommand=((pestaña_formula.register(validar_entrada_nom)), "%S"))
-entrada_mp_for = ttk.Combobox(pestaña_formula, width=20, state="readonly")
+combo_var = tk.StringVar()
+
+entrada_mp_for = ttk.Combobox(pestaña_formula, width=20,textvariable=combo_var)
+entrada_mp_for.bind('<Return>', partial(filtrar_opciones,entrada_mp_for))
 entrada_deposito_for = ttk.Combobox(pestaña_formula, width=10, state="readonly")
 entrada_deposito_for.bind("<<ComboboxSelected>>", partial(seleccionar_deposito))
 entrada_cantidad_for = ttk.Entry(pestaña_formula, width=10,validate="key",

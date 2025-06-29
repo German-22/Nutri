@@ -13,6 +13,8 @@ ruta_txt = "/archnucl"
 import sys
 sector = ""
 dic_res_stock = {}
+opciones_lote = []
+opciones_mp = []
 
 def leer_archivo():
     bd = la.Leer_archivo("archivo_bd.txt")   
@@ -32,12 +34,16 @@ def leer_archivo():
         messagebox.showinfo(message="Configure la Ruta a la Carpeta de Registros", title="Ruta Erronea")
 
 def leer_base():
+    global  opciones_lote
+    global  opciones_mp
     try:
         conexion=sqlite3.connect(entrada_ruta_bd.get())
         a = conexion.execute("""SELECT DISTINCT mp FROM stock;""")
-        combobox['values'] = list(a)        
+        opciones_mp = a.fetchall()
+        combobox['values'] = opciones_mp      
         a = conexion.execute("""SELECT DISTINCT lote FROM stock;""") 
-        combobox_lote['values'] = list(a)
+        opciones_lote = a.fetchall()
+        combobox_lote['values'] = opciones_lote
         a = conexion.execute("""SELECT DISTINCT deposito FROM stock;""") 
         combobox_deposito['values'] = list(a)
         conexion.close()        
@@ -59,51 +65,7 @@ def selecionar_ruta():
     except:
         messagebox.showinfo(message="Error al Configurar la Ruta", title="Ruta Erronea")
      
-def buscar(s,t):
-    if s == "mp":
-        for s in cuadro.get_children():
-            cuadro.delete(s)
-        conexion=sqlite3.connect(entrada_ruta_bd.get())
-        if check_nulos_value.get()==False:
-            a = conexion.execute("""SELECT * FROM stock WHERE mp = ? and stock != ?;""", (combobox.get(),0))        
-            b = a.fetchall()
-        else:
-            a = conexion.execute("""SELECT * FROM stock WHERE mp = ?;""", (combobox.get(),))
-            b = a.fetchall()        
-        for i in b:
-            cuadro.insert("", tk.END, text=i[0],
-                                values=(i[2],i[5],round(i[3],3),i[1],i[6]))
-        conexion.close()
-    if s == "lote":
-        for s in cuadro.get_children():
-            cuadro.delete(s)
-        conexion=sqlite3.connect(entrada_ruta_bd.get())
-        if check_nulos_value.get()==False:
-            a = conexion.execute("""SELECT * FROM stock WHERE lote = ? and stock !=?;""", (combobox_lote.get(),0))         
-            b = a.fetchall()  
-        else:
-            a = conexion.execute("""SELECT * FROM stock WHERE lote = ?;""", (combobox_lote.get(),))         
-            b = a.fetchall() 
 
-        for i in b:
-            cuadro.insert("", tk.END, text=i[0],
-                               values=(i[2],i[5],round(i[3],3),i[1],i[6]))
-        conexion.close()
-    if s == "deposito":
-        for s in cuadro.get_children():
-            cuadro.delete(s)
-        conexion=sqlite3.connect(entrada_ruta_bd.get())
-        if check_nulos_value.get()==False:
-            a = conexion.execute("""SELECT * FROM stock WHERE deposito = ? and stock !=?;""", (combobox_deposito.get(),0))         
-            b = a.fetchall()
-        else:
-            a = conexion.execute("""SELECT * FROM stock WHERE deposito = ?;""", (combobox_deposito.get(),))         
-            b = a.fetchall()  
-        for i in b:
-            cuadro.insert("", tk.END, text=i[0],
-                                values=(i[2],i[5],round(i[3],3),i[1],i[6]))
-        conexion.close()
-    
 def exportar():
     ruta = entrada_ruta_registro.get()    
     with open(ruta + "/" + "reporte.csv", 'w', newline='') as f:       
@@ -190,6 +152,38 @@ def actualizar():
 
     return
 
+def filtrar_opciones(formula,opciones,s):    
+    if opciones == "mp":
+        opcion = opciones_mp
+    else:
+        opcion = opciones_lote
+    
+    entrada = combo_var.get().lower()
+    
+    # Filtrar opciones que contengan el texto
+    filtradas = [op for op in opcion if entrada in op[0].lower()]
+    
+    # Guardar posición del cursor y texto actual
+    cursor_pos = formula.index(tk.INSERT)
+    
+    # Actualizar valores del Combobox
+    formula['values'] = filtradas if filtradas else opcion
+   
+    # Restaurar el texto y la posición del cursor
+    formula.delete(0, tk.END)
+    formula.insert(0, combo_var.get())
+    formula.icursor(cursor_pos)
+    
+    # Autocompletar si hay una sola opción
+    if len(filtradas) == 1:
+        formula.delete(0, tk.END)
+        formula.insert(0, filtradas[0])
+        formula.icursor(tk.END)
+
+    # Mostrar menú desplegable
+    formula.event_generate('<Down>')
+
+
 def busqueda_mp(le):
     for s in cuadro.get_children():
             cuadro.delete(s)    
@@ -258,6 +252,8 @@ def validar_entrada(numero):
                 return True
             except:
                 return False
+            
+
 
 ventana = Tk()
 ventana.protocol("WM_DELETE_WINDOW", cerrar)
@@ -285,14 +281,17 @@ label_lote.place(relx=0.01, rely=0.22)
 label_deposito = ttk.Label(pestaña_prod, text="Deposito")
 label_deposito.place(relx=0.01, rely=0.36)
 
-combobox = ttk.Combobox(pestaña_prod, width=40)
+combo_var = tk.StringVar()
+
+
+combobox = ttk.Combobox(pestaña_prod, width=40,textvariable=combo_var)
 combobox.place(relx=0.11, rely=0.08)
-combobox.bind("<<ComboboxSelected>>", partial(buscar,"mp"))
-combobox.bind("<Return>", partial(busqueda_mp))
-combobox_lote = ttk.Combobox(pestaña_prod, width=40)
+combobox.bind("<<ComboboxSelected>>", partial(buscar_mp,"mp"))
+combobox.bind("<Return>", partial(filtrar_opciones,combobox,"mp"))
+combobox_lote = ttk.Combobox(pestaña_prod, width=40,textvariable=combo_var)
 combobox_lote.place(relx=0.11, rely=0.22)
 combobox_lote.bind("<<ComboboxSelected>>", partial(buscar,"lote"))
-combobox_lote.bind("<Return>", partial(busqueda_lote))
+combobox_lote.bind("<Return>", partial(filtrar_opciones,combobox_lote,"lote"))
 combobox_deposito = ttk.Combobox(pestaña_prod, width=40)
 combobox_deposito.place(relx=0.11, rely=0.36)
 combobox_deposito.bind("<<ComboboxSelected>>", partial(buscar,"deposito"))

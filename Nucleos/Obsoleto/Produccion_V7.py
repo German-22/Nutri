@@ -387,7 +387,7 @@ def filtrar_opciones(formula,opciones,s):
         opcion = opciones_formula
     
     entrada = combo_var.get().lower()
-    
+ 
     # Filtrar opciones que contengan el texto
     filtradas = [op for op in opcion if entrada in op[0].lower()]
     
@@ -454,6 +454,7 @@ entrada_lote_juliano.place(relx=0.18, rely=0.01)
 entrada_lote_juliano_carga = ttk.Entry(pestaña_carga, width=20,validate="key",
                            validatecommand=((pestaña_prod.register(validar_entrada_cod_c)), "%S"))
 entrada_lote_juliano_carga.place(relx=0.1, rely=0.01)
+
 combo_var = tk.StringVar()
 
 
