@@ -13,8 +13,7 @@ from collections import defaultdict
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment
 
-def leer_base():
-    
+def leer_base():    
     try:
         conexion=sqlite3.connect(entrada_ruta_bd.get())            
         a = conexion.execute("""SELECT nombre from formulas where (sector = ? or sector = ? or nombre = ?) ORDER BY nombre;""",("Nucleos_Comasa","Nucleos_Cereales","Leche_en_Polvo_Abanderadox800g"))  
@@ -28,12 +27,15 @@ def leer_base():
         oc_combo["values"] = list(g)  
         e = conexion.execute("""SELECT * from ordenes;""")  
         g = e.fetchall() 
-        for fila in g:
-            treeoc.insert("", "end", values=fila)
-        e = conexion.execute("""SELECT * from planillas;""")  
+        if g:
+            for fila in g:
+                treeoc.insert("", "end", values=fila)
+        e = conexion.execute("""SELECT DISTINCT nplanilla,fecha, destino from planillas;""")  
         g = e.fetchall() 
-        for fila in g:
-            tree3.insert("", "end", values=fila)         
+        
+        if g:
+            for i in g:
+                tree3.insert("", "end", values=i)         
         conexion.close()         
         
         return list(b),list(d),list(f)
@@ -130,7 +132,7 @@ def leer_archivo():
         messagebox.showinfo(message="Configure la Ruta", title="Ruta Erronea")
         return
 
-def cargar_datos(s):    
+def cargar_datos(f):    
     producto = producto_combo.get()
     for s in tree.get_children():
         tree.delete(s)
@@ -152,9 +154,9 @@ def obtener_productos():
     return productos
 
 def mostrar_planilla():
-    planilla = tree3.item(tree3.selection())["values"][1]  
+    planilla = tree3.item(tree3.selection())["values"][0]  
     conexion=sqlite3.connect(entrada_ruta_bd.get())  
-    a = conexion.execute(f'''SELECT producto, pallet, lote, vto ,cantidad, destino, oc FROM despacho WHERE nplanilla = ? ''', (planilla,))
+    a = conexion.execute(f'''SELECT producto, pallet, lote, vto ,cantidad, destino, oc FROM planillas WHERE nplanilla = ? ''', (planilla,))
     b = a.fetchall()
     for s in tree4.get_children():
             tree4.delete(s)
@@ -162,37 +164,86 @@ def mostrar_planilla():
             tree4.insert("", "end", values=fila)
     conexion.close()    
     return
+
 def eliminar_planilla():
-    planilla = tree3.item(tree3.selection())["values"][1] 
-    id = tree3.item(tree3.selection())["values"][0] 
-    conexion=sqlite3.connect(entrada_ruta_bd.get())  
-    a = conexion.execute(f'''SELECT producto, pallet, lote, vto ,cantidad, destino, oc FROM despacho WHERE nplanilla = ? ''', (planilla,))
-    b = a.fetchall()
-    for s in tree4.get_children():
-            tree4.delete(s)
-    for fila in b:
-            tree4.insert("", "end", values=fila)
-    conexion.close()    
+    planilla = tree3.item(tree3.selection())["values"][0] 
+    
+    conexion=sqlite3.connect(entrada_ruta_bd.get()) 
+    try:
+        a = conexion.execute(
+            'SELECT cantidad, id_pallet, oc FROM planillas WHERE nplanilla = ?', 
+            (planilla,)
+        )
+        b = a.fetchall()
+        for oc in b:
+            conexion.execute(
+            "UPDATE despacho SET cantidad = cantidad + ? WHERE id = ?", (oc[0],oc[1])
+            
+        )
+        conexion.commit()
+        for oc in b:
+            conexion.execute(
+                "UPDATE ordenes SET pendiente = pendiente + ? WHERE OC = ?", 
+                (oc[0],oc[2] )
+            )
+        conexion.commit()
+
+    except Exception as e:
+        conexion.rollback()
+        print("Ocurrió un error al actualizar la base de datos:", e)
+        conexion.close()
+        return
+    conexion.execute("DELETE FROM planillas WHERE nplanilla = ?", (planilla,))
+    conexion.commit()  
+    conexion.close()  
+    seleccionado = tree3.selection()
+    if not seleccionado:
+        messagebox.showwarning("Sin selección", "Selecciona un registro para eliminar.")
+        return
+    tree3.delete(seleccionado[0])  
+    cargar_datos(planilla)     
     return
 
 def agregar():
     producto = producto_combo.get()    
     seleccion = parsear_pallets(pallets_entry.get().strip())
+    if seleccion == "":
+        messagebox.showwarning("Error","Error en valor ingresado")
+        return
+    oc = oc_combo.get()
     try:
-        with sqlite3.connect(entrada_ruta_bd.get()) as conn:
-            c = conn.cursor()
-            condiciones = "producto = ? AND (" + " OR ".join(["pallet = ?"] * len(seleccion)) + ") and estado = ? and cantidad != ?"
-            valores = [producto] + seleccion + ["liberado", 0]
-            c.execute(f'''SELECT producto, pallet, lote, vto ,cantidad FROM despacho WHERE {condiciones}''', valores)
-            
-            filas = c.fetchall()
-            for fila in filas:
-                tree2.insert("", "end", values=fila) 
-        if not filas:
-            messagebox.showinfo("Sin datos", "No hay registros para exportar.")
-            return   
+        conexion=sqlite3.connect(entrada_ruta_bd.get())         
+        a =conexion.execute(f'''SELECT producto FROM ordenes WHERE oc = ?''', (oc,))
+        d = a.fetchall()
+        if d[0][0]!=producto:
+            messagebox.showwarning("Error","La OC no corresponde con el Producto")
+            conexion.close()
+            return       
+        condiciones = "producto = ? AND (" + " OR ".join(["pallet = ?"] * len(seleccion)) + ") and estado = ? and cantidad != ?"
+        valores = [producto] + seleccion + ["liberado", 0]
+        f = conexion.execute(f'''SELECT id ,producto, pallet, lote, vto ,cantidad FROM despacho WHERE {condiciones}''', valores)
+        d = f.fetchall()
+        b = conexion.execute(f'''SELECT destino FROM ordenes WHERE OC = ?''', (oc,))
+        a = b.fetchall()
+        
+        for fila in d:
+    # Revisar si ya existe en tree2 una fila con mismo producto, pallet y lote
+            duplicado = False
+            for item in tree2.get_children():
+                valores_existentes = tree2.item(item, "values")
+                if (
+                    str(valores_existentes[1]) == str(fila[1]) and  # producto
+                    str(valores_existentes[2]) == str(fila[2]) and  # pallet
+                    str(valores_existentes[3]) == str(fila[3])      # lote
+                ):
+                    duplicado = True
+                    break
+
+            if not duplicado:
+                tree2.insert("", "end", values=list(fila) + [a[0][0]] + [oc])      
 
     except Exception as e:
+        conexion.rollback()
         messagebox.showerror("Error", str(e))
 
 def agregar_oc():
@@ -237,14 +288,45 @@ def agregar_oc():
 
 def agregar_cajas():
     cajas = cajas_entry.get()
-    id = tree.item(tree.selection())["values"][0]    
-    conexion=sqlite3.connect(entrada_ruta_bd.get())  
-    a = conexion.execute(f'''SELECT producto, pallet, lote, vto ,cantidad FROM despacho WHERE id = ? ''', (id,))
+    producto = producto_combo.get()
+    oc = oc_combo.get()
+    id = tree.item(tree.selection())["values"][0]  
+    if id == "":
+          messagebox.showinfo(message="Seleccione un Pallet", title="Error")
+          return
+    if cajas == "" or float(cajas) == False:
+        messagebox.showinfo(message="Error en Valor Ingresado", title="Error")
+        return
+
+    conexion=sqlite3.connect(entrada_ruta_bd.get()) 
+    a =conexion.execute(f'''SELECT producto FROM ordenes WHERE oc = ?''', (oc,))
+    d = a.fetchall()
+    if d[0][0]!=producto:
+        messagebox.showwarning("Error","La OC no corresponde con el Producto")
+        conexion.close()
+        return    
+    a = conexion.execute(f'''SELECT id ,producto, pallet, lote, vto ,cantidad FROM despacho WHERE id = ? ''', (id,))
     b = a.fetchall()
     c = list(b[0])
-    if int(c[4])>=int(cajas):
-        c[4]=cajas       
-        tree2.insert("", "end", values=c) 
+    if int(c[5])>=int(cajas):
+        c[5]=cajas    
+
+        x = conexion.execute(f'''SELECT destino FROM ordenes WHERE OC = ?''', (oc,))
+        y = x.fetchall()    
+    # Revisar si ya existe en tree2 una fila con mismo producto, pallet y lote
+        duplicado = False
+        for item in tree2.get_children():
+            valores_existentes = tree2.item(item, "values")
+            if (
+                str(valores_existentes[1]) == str(c[1]) and  # producto
+                str(valores_existentes[2]) == str(c[2]) and  # pallet
+                str(valores_existentes[3]) == str(c[3])      # lote
+            ):
+                duplicado = True
+                break
+
+        if not duplicado:
+            tree2.insert("", "end", values=list(c) + [y[0][0]] + [oc]) 
     else:
         messagebox.showinfo(message="Este Pallet no Tiene Suficientes Cajas", title="Error")
     return
@@ -260,7 +342,7 @@ def parsear_pallets(entrada):
     return resultado
 
 def crear_planilla(valores):
-    #try:  
+    try:  
         plantilla_path = entrada_ruta_excel.get()
         plantilla_path = plantilla_path.replace("_", " ")
         carpeta = entrada_rutae.get()
@@ -268,7 +350,7 @@ def crear_planilla(valores):
         conteo = defaultdict(int)
         # Contar cajas por producto y lote}
         
-        for producto,_, lote,_,cajas in valores:
+        for _,producto,_, lote,_,cajas,_,_ in valores:
             clave = (producto, lote)            
             conteo[clave] += float(cajas)
         
@@ -277,12 +359,12 @@ def crear_planilla(valores):
         conteo3 = defaultdict(int)
         conteo4 = defaultdict(int)
         # Recorremos la lista y contamos
-        for producto,_, lote,_,cajas in valores:
+        for _,producto,_, lote,_,cajas,_,_ in valores:
             conteo2[(producto)] += 1
         
         lotes_por_producto = {}
 
-        for producto,_, lote,vto,cajas in valores:
+        for _,producto,_, lote,vto,cajas,_,_ in valores:
             clave = (producto, lote)
             conteo4[clave] = vto
             if producto not in lotes_por_producto:
@@ -357,47 +439,99 @@ def crear_planilla(valores):
         pallet_anterior = 0
         for v in valores:
             
-            if pallet_anterior == v[1]:
-                ws.cell(row=fila_inicio, column=5+2,value=v[2])
-                ws.cell(row=fila_inicio, column=6+2,value=v[4])                
+            if pallet_anterior == v[2]:
+                ws.cell(row=fila_inicio, column=5+2,value=v[3])
+                ws.cell(row=fila_inicio, column=6+2,value=v[5])                
             else:
                 fila_inicio+=1                
-                ws.cell(row=fila_inicio, column=4,value=v[1])
-                ws.cell(row=fila_inicio, column=5,value=v[2])
-                ws.cell(row=fila_inicio, column=6,value=v[4])                
-                pallet_anterior = v[1]
+                ws.cell(row=fila_inicio, column=4,value=v[2])
+                ws.cell(row=fila_inicio, column=5,value=v[3])
+                ws.cell(row=fila_inicio, column=6,value=v[5])                
+                pallet_anterior = v[2]
 
 
         fecha_actual = datetime.now().strftime("%Y-%m-%d")
-        archivo_salida = os.path.join(carpeta, f"{v[0][0]}_{fecha_actual}.xlsx")
+        archivo_salida = os.path.join(carpeta, f"{valores[0][1]}_{fecha_actual}.xlsx")
         wb.save(archivo_salida)
         messagebox.showinfo("Éxito", f"Archivo exportado: {archivo_salida}")
 
-    #except Exception as e:
-    #    messagebox.showerror("Error", str(e))
-    #    return
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+        return
 
-def ejecutar_exportacion():
-    #try:
-        valores = []  
-        hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Obtener datos del treeview
-        for item_id in tree2.get_children():
-            valores.append(tree2.item(item_id)["values"])
-        
-        if not valores:
-            messagebox.showwarning("Advertencia", "No hay datos para exportar.")
-            return
-        crear_planilla(valores) 
-        #
-    #except:
-    #    messagebox.showwarning("Advertencia", "Error al creal planilla")
-    #    return
-
-    #try:
+def ejecutar_exportacion():    
+    valores = []  
+    hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conteo5 = defaultdict(float)
+   
+    for item_id in tree2.get_children():
+        valores.append(tree2.item(item_id)["values"])
+    if not valores:
+        messagebox.showwarning("Advertencia", "No hay datos para exportar.")
+        return
+    for fila in valores:
+        try:
+            cajas = float(fila[5])
+            oc = fila[7]
+            conteo5[oc] += cajas
+        except (IndexError, ValueError, TypeError) as e:
+            print(f"Error procesando fila {fila}: {e}")
+    try:
         conexion = sqlite3.connect(entrada_ruta_bd.get())
+        for oc, total_cajas in conteo5.items():
+                a =conexion.execute(f'''SELECT pendiente FROM ordenes WHERE oc = ?''', (oc,))
+                d = a.fetchall()         
+            
+                if total_cajas>d[0][0]:
+                    messagebox.showwarning("Error","La cantidad de Cajas es Mayor al Pendiente de Despacho")
+                    conexion.close()
+                    return     
+        
+        for v in valores:
+            
+            cursor = conexion.execute('SELECT cantidad FROM despacho WHERE id = ?', (v[0],))
+            resultado = cursor.fetchone()
 
+            if resultado is not None:
+                cantidad_actual = resultado[0]
+                
+                if float(cantidad_actual) >= float(v[5]):
+                    
+                    conexion.execute('''
+                        UPDATE despacho 
+                        SET cantidad = (cantidad - ?)            
+                        WHERE id = ?
+                    ''', (v[5], v[0]))
+                else:
+                    messagebox.showwarning(
+                        "Cantidad insuficiente",
+                        f"No se puede descontar {v[5]} del ID {v[0]}: solo hay {cantidad_actual} disponible."
+                    )
+                    conexion.rollback()
+                    conexion.close()
+                    return
+            else:
+                messagebox.showerror("Error", f"No se encontró el ID {v[0]} en la tabla despacho.")
+                conexion.rollback()
+                return
+        conexion.commit()
+        for oc, total_cajas in conteo5.items():
+            conexion.execute(
+                "UPDATE ordenes SET pendiente = pendiente - ? WHERE OC = ?", 
+                (total_cajas, oc)
+            )
+        conexion.commit()
+            
+    except Exception as e:
+        conexion.rollback()
+        print("Error al actualizar la base de datos:", e)
+        conexion.close()
+
+    # Obtener datos del treeview
+       
+         
+    try:
+        conexion = sqlite3.connect(entrada_ruta_bd.get())
         # Obtener destino desde ordenes
         resultado = conexion.execute('SELECT Destino FROM ordenes WHERE OC = ?', (oc_combo.get(),)).fetchone()
         if not resultado:
@@ -407,39 +541,128 @@ def ejecutar_exportacion():
         destino = resultado[0]
         
         # Crear nombre de planilla
-        nplanilla = str(valores[0][0]) + hora
+        nplanilla = str(valores[0][1]) + hora
         
         # Insertar en planillas
-        conexion.execute('''
-            INSERT INTO planillas (nplanilla, fecha, destino)
-            VALUES (?, ?, ?)
-        ''', (nplanilla, hora, destino))
+        for v in valores:
+            conexion.execute('''
+                INSERT INTO planillas (producto,nplanilla, fecha,pallet,cantidad,vto,lote,destino,oc,id_pallet)
+                VALUES (?, ?,?, ?,?,?,?,?,?,?)
+            ''', (v[1],nplanilla, hora,v[2],v[5],v[4],v[3],destino,v[7],v[0]))
         conexion.commit()
 
         # Mostrar la nueva planilla en tree3
-        planilla_row = conexion.execute('SELECT * FROM planillas WHERE nplanilla = ?', (nplanilla,)).fetchone()
+        planilla_row = conexion.execute('SELECT DISTINCT nplanilla,fecha,destino FROM planillas WHERE nplanilla = ?', (nplanilla,)).fetchone()
+        
         if planilla_row:
             tree3.insert("", "end", values=planilla_row)
-        
-        # Actualizar registros en despacho
-        for v in valores:
-            conexion.execute('''
-                UPDATE despacho 
-                SET cantidad = (cantidad - ?),
-                    fecha_desp = ?,
-                    nplanilla = ?,
-                    estado = ?
-                WHERE producto = ? AND pallet = ? AND lote = ?
-            ''', (float(v[4]), hora, nplanilla, "despachado", v[0], v[1], v[2]))
-         
-        conexion.commit()
-        conexion.close()
-        messagebox.showinfo("Éxito", "Exportación realizada correctamente.")
-
-    #except Exception as e:
-    #    messagebox.showerror("Error", f"Ocurrió un error:\n{e}")
-    #    return
     
+        
+        conexion.close()
+        crear_planilla(valores) 
+        cargar_datos(v)
+
+    except Exception as e:
+        conexion.rollback()
+        conexion.close()
+        messagebox.showerror("Error", f"Ocurrió un error:\n{e}")
+        return
+    
+def limpiar_planilla():
+    for s in tree2.get_children():
+        tree2.delete(s)
+    return
+
+def validar_entrada2(texto):
+    return all(c.isdigit() for c in texto)    
+
+def validar_entrada(texto):
+    if texto == "":
+        return True  # permitir borrar todo
+    if texto.startswith('-'):
+        return False
+    if '--' in texto:
+        return False
+    return all(c.isdigit() or c == '-' for c in texto)
+
+def actualizar_pallet():
+    pallet = n_pallet.get()
+    lote = entry_lote.get()
+    vtoc = entry_vto.get()
+    comen = comentario.get()    
+    cajas = cajas_act.get() 
+    conexion=sqlite3.connect(entrada_ruta_bd.get())
+    lista2 = tree.item(tree.selection())["values"]   
+    id = lista2[0]
+    if pallet!="":   
+        lista2[3] = pallet
+        conexion.execute("""UPDATE despacho SET pallet = ? WHERE id = ?;""" ,(pallet,id))
+        conexion.commit()
+    if lote!="":
+        lista2[4] = lote
+        conexion.execute("""UPDATE despacho SET lote = ? WHERE id = ?;""" ,(lote,id))
+        conexion.commit()
+    if vtoc!="":
+        lista2[5] = lote
+        if len(vtoc)==10:
+            dia = vtoc[0:2]
+            mes = vtoc[3:5]
+            año = vtoc[6:10]        
+            rev = (año) + "-" + (mes) + "-" + (dia)                  
+            try:            
+                datetime.strptime(rev, "%Y-%m-%d")            
+            except:            
+                messagebox.showinfo(message="Error en Fecha de Vto", title="Error de Fecha")
+                return       
+        conexion.execute("""UPDATE despacho SET vto = ? WHERE id = ?;""" ,(vtoc,id))
+        conexion.commit()
+    if cajas!="":
+        lista2[6] = lote
+        conexion.execute("""UPDATE despacho SET cantidad = ? WHERE id = ?;""" ,(cajas,id))
+        conexion.commit()
+    if comen!="":
+        lista2[8] = lote
+        conexion.execute("""UPDATE despacho SET comentario = ? WHERE id = ?;""" ,(comen,id))
+        conexion.commit()
+    conexion.close()
+    cargar_datos(lote)
+    return
+
+def cargar_pallet():
+    pallet = n_pallet.get()
+    lote = entry_lote.get()
+    vto = entry_vto.get()
+    comen = comentario.get()    
+    cajas = cajas_act.get() 
+    responsable = resp.get()
+   
+    if cajas == "" or vto=="" or lote == "" or pallet == "" or responsable =="":
+        messagebox.showinfo(message="Ingrese los Datos", title="Error")
+        return
+    producto = producto_combo.get()
+    if producto == "":
+        messagebox.showinfo(message="Seleccione el Producto", title="Error")
+        return
+    
+    hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    conexion=sqlite3.connect(entrada_ruta_bd.get())
+    conexion.execute('''
+                INSERT INTO despacho (hora,producto,pallet, lote,vto,cantidad, comentario, responsable)
+                VALUES (?, ?, ?, ?, ?, ?,?,?)
+            ''', (hora,producto, pallet, lote,vto ,cajas, comen,responsable))
+    conexion.commit()
+    conexion.close
+    cargar_datos(hora)
+    return
+
+def eliminar_pallet():
+    lista2 = tree.item(tree.selection())["values"]   
+    id = lista2[0]
+    conexion=sqlite3.connect(entrada_ruta_bd.get())
+    conexion.execute("DELETE FROM despacho WHERE id = ?", (id,))
+    conexion.close()
+    cargar_datos(id)
+    return
        
 # ---------------- Interfaz ----------------
 
@@ -468,13 +691,15 @@ ttk.Label(frame_exportar, text="Pallets (ej: 1,3,5-8):").place(relx=0.65,rely=0.
 pallet_frame = ttk.Frame(frame_exportar)
 pallet_frame.place(relx=0.65,rely=0.35)
 
-pallets_entry = ttk.Entry(pallet_frame, width=30)
+vcmd = (root.register(validar_entrada), '%P')
+pallets_entry = ttk.Entry(pallet_frame, width=30, validate="key", validatecommand=vcmd)
 pallets_entry.pack(side="left", padx=(5, 0)) 
 
 ttk.Button(pallet_frame, text="Agregar a Planilla", command=agregar).pack(side="left", padx=(5, 0))  
   
 
 ttk.Label(frame_exportar, text="Cantidad de Cajas:").place(relx=0.3,rely=0.05)
+
 cajas_act = ttk.Entry(frame_exportar, width=30)
 cajas_act.place(relx=0.37,rely=0.05) 
 ttk.Label(frame_exportar, text="N° de Pallet:").place(relx=0.3,rely=0.01)
@@ -487,28 +712,25 @@ ttk.Label(frame_exportar, text="Vto:").place(relx=0.3,rely=0.13)
 entry_vto = ttk.Entry(frame_exportar, width=30)
 entry_vto.place(relx=0.37,rely=0.13)
 ttk.Label(frame_exportar, text="Comentario:").place(relx=0.5,rely=0.05)
-cajas_act = ttk.Entry(frame_exportar, width=30)
-cajas_act.place(relx=0.55,rely=0.05) 
+comentario = ttk.Entry(frame_exportar, width=30)
+comentario.place(relx=0.55,rely=0.05) 
 ttk.Label(frame_exportar, text="Responsable:").place(relx=0.5,rely=0.01)
-n_pallet = ttk.Entry(frame_exportar, width=30)
-n_pallet.place(relx=0.55,rely=0.01) 
+resp = ttk.Entry(frame_exportar, width=30)
+resp.place(relx=0.55,rely=0.01) 
 
-ttk.Button(frame_exportar, text="Actualizar", command=agregar).place(relx=0.7,rely=0.01)
-ttk.Button(frame_exportar, text="Cargar", command=agregar).place(relx=0.7,rely=0.05)
-ttk.Button(frame_exportar, text="Eliminar", command=agregar).place(relx=0.7,rely=0.09) 
+ttk.Button(frame_exportar, text="Actualizar Pallet", command=actualizar_pallet).place(relx=0.7,rely=0.01)
+ttk.Button(frame_exportar, text="Cargar Pallet", command=cargar_pallet).place(relx=0.7,rely=0.05)
+ttk.Button(frame_exportar, text="Eliminar Pallet", command=eliminar_pallet).place(relx=0.7,rely=0.09) 
 # 🟦 Nueva sección: N° de cajas + botón agregar_cajas
 cajas_frame = ttk.Frame(frame_exportar)
 cajas_frame.place(relx=0.65,rely=0.4)
 
 ttk.Label(cajas_frame, text="N° de cajas:").pack(side="left", padx=(0, 5))
-
-cajas_entry = ttk.Entry(cajas_frame, width=10)
+vcmd = (root.register(validar_entrada2), '%P')
+cajas_entry = ttk.Entry(cajas_frame, width=10,validate="key", validatecommand=vcmd)
 cajas_entry.pack(side="left", padx=(0, 5))
 
 ttk.Button(cajas_frame, text="Agregar a Planilla", command=agregar_cajas).pack(side="left")
-
-
-
 
 # Tabla de resultados
 # Contenedor para tree + scrollbars
@@ -526,8 +748,7 @@ tree = ttk.Treeview(
     show='headings',
     yscrollcommand=scrollbar_y.set,
     xscrollcommand=scrollbar_x.set,
-    height=10
-    
+    height=10    
 )
 
 scrollbar_y.config(command=tree.yview)
@@ -560,7 +781,7 @@ scrollbar_x = ttk.Scrollbar(contenedor_tree2, orient="horizontal")
 # Treeview con scrollbars
 tree2 = ttk.Treeview(
     contenedor_tree2,
-    columns=("Producto", "Pallet", "Lote","Vto" ,"Cajas","Destino","OC"), show='headings', 
+    columns=("id","Producto", "Pallet", "Lote","Vto" ,"Cajas","Destino","OC"), show='headings', 
     yscrollcommand=scrollbar_y.set,
     xscrollcommand=scrollbar_x.set,
     height=10
@@ -591,6 +812,7 @@ ttk.Button(frame_exportar, text="Exportar", command=ejecutar_exportacion).place(
 contenedor_tree3 = ttk.Frame(frame_exportar)
 contenedor_tree3.place(relx=0.38, rely=0.6, relwidth=0.25, relheight=0.3)  # Ajusta si es necesario
 ttk.Button(frame_exportar, text="Exportar", command=ejecutar_exportacion).place(relx=0.31,rely=0.7)
+ttk.Button(frame_exportar, text="Limpiar Planilla", command=limpiar_planilla).place(relx=0.31,rely=0.75)
 ttk.Button(frame_exportar, text="Mostrar", command=mostrar_planilla).place(relx=0.63,rely=0.7)
 ttk.Button(frame_exportar, text="Eliminar", command=eliminar_planilla).place(relx=0.63,rely=0.75)
 ttk.Label(contenedor_tree3, text="Planillas Activas:").place(relx=0,rely=0)
@@ -601,7 +823,7 @@ scrollbar_x = ttk.Scrollbar(contenedor_tree3, orient="horizontal")
 # Treeview con scrollbars
 tree3 = ttk.Treeview(
     contenedor_tree3,
-    columns=("id","N° de Planilla","Fecha","Destino"), show='headings', 
+    columns=("N° de Planilla","Fecha","Destino"), show='headings', 
     yscrollcommand=scrollbar_y.set,
     xscrollcommand=scrollbar_x.set,
     height=10

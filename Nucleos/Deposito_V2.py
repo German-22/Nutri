@@ -5,6 +5,8 @@ import sqlite3
 import os
 from csv import reader, writer
 from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
 from functools import partial
 from datetime import datetime
 import time
@@ -129,7 +131,7 @@ def crear_pdf():
     responsable_deposito = entrada_resp.get()
     observacion = str(entrada_obs.get())
     presentacion = entrada_presentacion.get()
-    calidad = str(random.sample(["Maria Eugenia Tillus", "Daniela Poloni", "Veronica Amuchastegui", "Natalia Martinez", "Sofia Pascua", "Mariano Benitez"],k=1)[0])
+    calidad = str(random.sample(["Joaquin Lopez", "Daniela Poloni", "Veronica Amuchastegui", "Natalia Martinez", "Sofia Pascua", "Mariano Benitez"],k=1)[0])
        
     c = canvas.Canvas(str(entrada_ruta_registro.get()) + "/" + str(fecha) + "-" + str(mp)+ "-" + str(lote)+ "-" + str(remito) + ".pdf")
     x = 50
@@ -167,6 +169,111 @@ def crear_pdf():
     c.drawString(305, 465, "Observaciones: " + observacion)
     c.drawString(305, 65, "Verifico:  " + calidad)
     c.save()
+    return
+
+def crear_pdf_despacho(planilla):
+    try:
+           
+        calidad = str(random.sample(["Joaquin Lopez", "Daniela Poloni", "Veronica Amuchastegui", "Natalia Martinez", "Sofia Pascua", "Mariano Benitez"],k=1)[0])
+        conexion=sqlite3.connect(entrada_ruta.get())    
+        # Conexión a la base de datos    
+        cursor = conexion.cursor()
+        # Consulta SQL
+        query = """
+            SELECT 
+                nplanilla,
+                fecha,                    
+                producto,                    
+                destino,
+                vto,
+                lote,
+                remito,
+                oc,
+                chofer,
+                patente,
+                estado_trans,
+                transporte,
+                comentario,
+                responsable,
+                SUM(cantidad) AS total_cajas
+            FROM planillas
+            WHERE nplanilla = ?
+            GROUP BY nplanilla, producto, lote
+            ORDER BY producto, lote;
+        """
+        cursor.execute(query, (planilla,))
+        resultados = cursor.fetchall()
+
+        if not resultados:
+            print("No se encontraron datos para la planilla.")
+            return
+
+        # Crear PDF
+        (nplanilla, fecha, _, destino, _, _, remito, _, chofer, patente,
+        estado_trans, transporte, comentario, responsable, _) = resultados[0]
+        c = canvas.Canvas(str(entrada_ruta_registro.get()) + "/" + str(destino) + "-" + str(remito) + ".pdf", pagesize=A4)
+        width, height = A4
+        margen_izq = 2 * cm
+        y = height - 2 * cm
+
+        # Encabezado
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(margen_izq, y, f"Planilla N° {nplanilla}")
+        y -= 1 * cm
+
+        c.setFont("Helvetica", 10)
+
+        encabezado_info = [
+            ("Fecha", fecha),
+            ("Chofer", chofer),
+            ("Transporte", transporte),
+            ("Remito", remito),
+            ("Patente", patente),
+            ("Estado", estado_trans),
+            ("Responsable", responsable),
+            ("Comentario", comentario)
+        ]
+
+        for label, value in encabezado_info:
+            c.drawString(margen_izq, y, f"{label}: {value}")
+            y -= 0.5 * cm
+
+        y -= 0.5 * cm  # espacio extra antes de la tabla
+
+        # Título tabla
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(margen_izq, y, "Detalle de productos")
+        y -= 0.7 * cm
+
+        # Encabezado de la tabla
+        columnas = ["Producto", "Lote", "Destino", "Vencimiento", "Cantidad"]
+        posiciones_x = [margen_izq, margen_izq + 7*cm, margen_izq + 11*cm,
+                        margen_izq + 13*cm, margen_izq + 17*cm]
+
+        c.setFont("Helvetica-Bold", 10)
+        for i, col in enumerate(columnas):
+            c.drawString(posiciones_x[i], y, col)
+        y -= 0.4 * cm
+
+        c.setFont("Helvetica", 10)
+        for fila in resultados:
+            producto, destino, vto, lote, total = fila[2], fila[3], fila[4], fila[5], fila[-1]
+            valores = [producto, lote, destino, vto, str(round(total, 2))]
+
+            for i, val in enumerate(valores):
+                c.drawString(posiciones_x[i], y, val)
+            y -= 0.5 * cm
+
+            if y < 2 * cm:
+                c.showPage()
+                y = height - 2 * cm
+        c.drawString(305, 65, "Verifico:  " + calidad)
+        c.save()
+        conexion.close()
+    except:
+        messagebox.showwarning("Error", "Error al generar PDF.")
+        conexion.close()
+    return
 
 def seleccionar_deposito(s):
     dep = selec_deposito.get()
@@ -320,6 +427,9 @@ def despachar():
     trans = entrada_tra.get()
     comen = entrada_com.get()
     resp = entrada_res.get()
+    if remito == "" or chofer=="" or trans=="" or patente=="" or estado=="" or resp=="":
+        messagebox.showwarning("Error", "Complete los campos")
+        return     
     
     lista2 = [remito,chofer,trans,patente,estado,comen,resp]
     for i in lista2:    
@@ -332,8 +442,9 @@ def despachar():
         tree.delete(tree.selection())    
         tree.insert("", "end", values=lista)
     except:
+        messagebox.showwarning("Error", "Error al cargar el depacho.")
         return
-    
+    crear_pdf_despacho(lista[0])
     return
 
 ventana = Tk()

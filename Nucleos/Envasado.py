@@ -63,8 +63,11 @@ class ProduccionPesosApp(tk.Tk):
         self.entry_cantidad.grid(row=1, column=1, sticky="w", padx=5, pady=3)
 
         ttk.Label(form, text="Comentario:").grid(row=1, column=2, sticky="e", padx=5, pady=3)
-        self.entry_comentario = ttk.Entry(form, width=40)
+        self.entry_comentario = ttk.Entry(form, width=30)
         self.entry_comentario.grid(row=1, column=3, sticky="w", padx=5, pady=3)
+        ttk.Label(form, text="Responsable:").grid(row=1, column=4, sticky="e", padx=5, pady=3)
+        self.entry_resp = ttk.Entry(form, width=30)
+        self.entry_resp.grid(row=1, column=5, sticky="w", padx=5, pady=3)
 
         btn_guardar = ttk.Button(form, text="Agregar registro", command=self.agregar_registro_produccion)
         btn_guardar.grid(row=2, column=0, columnspan=4, pady=8)
@@ -96,6 +99,7 @@ class ProduccionPesosApp(tk.Tk):
         cantidad = self.entry_cantidad.get().strip()
         comentario = self.entry_comentario.get().strip()
         conexion = sqlite3.connect(self.entrada_ruta.get())
+        resp = self.entry_resp.get()
         if not pallet or not lote or not cantidad or not vto:
             messagebox.showwarning("Datos incompletos", "Completa los campos N° de Pallet, Lote y Cantidad de cajas.")
             return
@@ -110,20 +114,20 @@ class ProduccionPesosApp(tk.Tk):
 
         hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         producto = self.producto_combo.get()
-        #try:
-        conexion.execute('''
-            INSERT INTO despacho (hora,producto,pallet, lote,vto,cantidad, comentario)
-            VALUES (?, ?, ?, ?, ?, ?,?)
-        ''', (hora,producto, pallet, lote,vto ,cantidad, comentario))
-        conexion.commit()
-        conexion.execute('''
-            UPDATE ordenes SET producido = producido + ? where Producto = ? and Estado = pendiente''', (cantidad,producto))
-        conexion.commit()
-        conexion.close()
-        #except:
-        #    messagebox.showinfo(message="Dato Invalido", title="Error")
-        #    conexion.close()
-        #    return
+        try:
+            conexion.execute('''
+                INSERT INTO despacho (hora,producto,pallet, lote,vto,cantidad, comentario, responsable)
+                VALUES (?, ?, ?, ?, ?, ?,?,?)
+            ''', (hora,producto, pallet, lote,vto ,cantidad, comentario,resp))
+            conexion.commit()
+            conexion.execute('''
+                UPDATE ordenes SET producido = producido + ? where Producto = ? and Estado = pendiente''', (cantidad,producto))
+            conexion.commit()
+            conexion.close()
+        except:
+            messagebox.showinfo(message="Dato Invalido", title="Error")
+            conexion.close()
+            return
 
         #self.entry_pallet.delete(0, tk.END)        
         self.entry_comentario.delete(0, tk.END)
