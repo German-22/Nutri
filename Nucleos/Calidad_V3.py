@@ -18,6 +18,10 @@ ancho1 = 30
 ancho2 = 20
 sep = 0.25
 sep2 = 0.37
+opciones_lote = []
+opciones_mp = []
+opciones_rem = []
+opciones_prod = []
 def leer_archivo():
     bd = la.Leer_archivo("archivo_bd.txt")   
     archivo_bd = bd.leer()
@@ -36,18 +40,27 @@ def leer_archivo():
         messagebox.showinfo(message="Configure la Ruta a la Carpeta de Registros", title="Ruta Erronea")
 
 def leer_base():
+    global  opciones_mp,opciones_lote,opciones_rem,opciones_prod
     try:
         conexion=sqlite3.connect(entrada_ruta_bd.get())
         a = conexion.execute("""SELECT DISTINCT mp FROM recepcion;""")
         b = a.fetchall()
+        opciones_mp = b
         mp['values'] = list(b)
         entrada_mp_corr['values'] = list(b)
         a = conexion.execute("""SELECT DISTINCT fecha FROM recepcion;""")
         fecha['values'] = list(a)
         a = conexion.execute("""SELECT DISTINCT nderemito FROM recepcion;""") 
-        nderemito['values'] = list(a)
+        b = a.fetchall()
+        opciones_rem = b
+        nderemito['values'] = b
+        a = conexion.execute("""SELECT nombre from formulas where (sector = ? or sector = ? or nombre = ?) ORDER BY nombre;""",("Nucleos_Comasa","Nucleos_Cereales","Leche_en_Polvo_Abanderadox800g"))  
+        b = a.fetchall()       
+        opciones_prod = b
         a = conexion.execute("""SELECT DISTINCT lote FROM recepcion;""") 
-        lote['values'] = list(a)
+        b = a.fetchall()
+        opciones_lote = b
+        lote['values'] = b
         a = conexion.execute("""SELECT DISTINCT proveedor FROM recepcion;""") 
         proveedor['values'] = list(a)  
         a = conexion.execute("""SELECT DISTINCT deposito FROM recepcion;""") 
@@ -326,59 +339,6 @@ def validar_entrada(numero):
         else:
             return False
 
-def busqueda_mp(letra):
-    for s in cuadro.get_children():
-            cuadro.delete(s)
-    conexion=sqlite3.connect(entrada_ruta_bd.get())
-    a = conexion.execute("""SELECT * FROM recepcion;""")
-    b = a.fetchall() 
-    for i in b:
-        if mp.get() in str(i[2]).lower():
-            if datetime.strptime(str(i[5][0:10]), "%Y-%m-%d") < datetime.strptime(str(datetime.now().date()),"%Y-%m-%d"):
-                cuadro.insert("", tk.END, text=i[0],tags=i[0],
-                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31],i[32]))
-                cuadro.tag_configure(i[0],background = 'red')
-            else:
-                cuadro.insert("", tk.END, text=i[0],tags=i[0],
-                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31],i[32]))
-    conexion.close()
-    return True
-
-def busqueda_lote(letra):
-    for s in cuadro.get_children():
-            cuadro.delete(s)
-    conexion=sqlite3.connect(entrada_ruta_bd.get())
-    a = conexion.execute("""SELECT * FROM recepcion;""")
-    b = a.fetchall() 
-    for i in b:
-        if lote.get() in str(i[3]).lower():
-            if datetime.strptime(str(i[5][0:10]), "%Y-%m-%d") < datetime.strptime(str(datetime.now().date()),"%Y-%m-%d"):
-                cuadro.insert("", tk.END, text=i[0],tags=i[0],
-                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31],i[32]))
-                cuadro.tag_configure(i[0],background = 'red')
-            else:
-                cuadro.insert("", tk.END, text=i[0],tags=i[0],
-                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31],i[32]))
-                conexion.close()
-    return True
-
-def busqueda_remito(letra):
-    for s in cuadro.get_children():
-            cuadro.delete(s)
-    conexion=sqlite3.connect(entrada_ruta_bd.get())
-    a = conexion.execute("""SELECT * FROM recepcion;""")
-    b = a.fetchall() 
-    for i in b:
-        if nderemito.get() in str(i[8]).lower():
-            if datetime.strptime(str(i[5][0:10]), "%Y-%m-%d") < datetime.strptime(str(datetime.now().date()),"%Y-%m-%d"):
-                cuadro.insert("", tk.END, text=i[0],tags=i[0],
-                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31],i[32]))
-                cuadro.tag_configure(i[0],background = 'red')
-            else:
-                cuadro.insert("", tk.END, text=i[0],tags=i[0],
-                            values=(i[1],i[2],i[3],i[5],i[6],i[7],i[8],i[9],i[10],i[11],i[13],i[14],i[15],i[16],i[17],i[18],i[19],i[20],i[12],i[4], i[21],i[22],i[23],i[24],i[25],i[26],i[27],i[28],i[30],i[29],i[31],i[32]))                    
-    conexion.close()
-    return True
 
 def vencimiento():
     for s in cuadro.get_children():
@@ -671,6 +631,46 @@ def liberar_pt():
     cargar_datos(id)
     return
 
+def filtrar_opciones(formula,opciones,s):    
+    if opciones == "mp":
+        opcion = opciones_mp
+        ent = combo_var.get()
+        entrada = combo_var.get().lower()
+    elif opciones == "remito":
+        opcion = opciones_rem
+        entrada = combo_var2.get().lower()
+        ent = combo_var2.get()
+    elif opciones == "lote":
+        opcion = opciones_lote
+        entrada = combo_var3.get().lower()
+        ent = combo_var3.get()
+    elif opciones == "prod":
+        opcion = opciones_prod
+        entrada = combo_var4.get().lower()
+        ent = combo_var4.get()
+        
+    # Filtrar opciones que contengan el texto
+    filtradas = [op for op in opcion if entrada in op[0].lower()]
+    
+    # Guardar posición del cursor y texto actual
+    cursor_pos = formula.index(tk.INSERT)
+    
+    # Actualizar valores del Combobox
+    formula['values'] = filtradas if filtradas else opcion
+    
+    # Restaurar el texto y la posición del cursor
+    formula.delete(0, tk.END)
+    formula.insert(0, ent)
+    formula.icursor(cursor_pos)
+    
+    # Autocompletar si hay una sola opción
+    if len(filtradas) == 1:
+        formula.delete(0, tk.END)
+        formula.insert(0, filtradas[0])
+        formula.icursor(tk.END)
+
+    # Mostrar menú desplegable
+    formula.event_generate('<Down>')
 
 ventana = Tk()
 ventana.protocol("WM_DELETE_WINDOW", cerrar)
@@ -791,18 +791,26 @@ entrada_responsable.place(relx=sep2, rely=0.41)
 fecha = ttk.Combobox(pestaña_prod, width=ancho1, state="readonly")
 fecha.place(relx=0.07, y=10)
 fecha.bind("<<ComboboxSelected>>", partial(buscar,"fecha"))
-mp = ttk.Combobox(pestaña_prod, width=ancho1)
+combo_var = tk.StringVar()
+combo_var2 = tk.StringVar()
+combo_var3 = tk.StringVar()
+mp = ttk.Combobox(pestaña_prod, width=ancho1,textvariable=combo_var)
 mp.place(relx=0.07, rely=0.08)
+
+
 mp.bind("<<ComboboxSelected>>", partial(buscar,"mp"))
-mp.bind("<Return>", partial(busqueda_mp))
-nderemito = ttk.Combobox(pestaña_prod, width=ancho1)
+
+mp.bind('<Return>', partial(filtrar_opciones,mp,"mp"))
+nderemito = ttk.Combobox(pestaña_prod, width=ancho1,textvariable=combo_var2)
 nderemito.place(relx=0.07, rely=0.15)
 nderemito.bind("<<ComboboxSelected>>", partial(buscar,"nderemito"))
-nderemito.bind("<Return>", partial(busqueda_remito))
-lote = ttk.Combobox(pestaña_prod, width=ancho1)
+nderemito.bind('<Return>', partial(filtrar_opciones,nderemito,"remito"))
+
+lote = ttk.Combobox(pestaña_prod, width=ancho1,textvariable=combo_var3)
 lote.place(relx=0.07, rely=0.22)
 lote.bind("<<ComboboxSelected>>", partial(buscar,"lote"))
-lote.bind("<Return>", partial(busqueda_lote))
+lote.bind('<Return>', partial(filtrar_opciones,lote,"lote"))
+
 proveedor = ttk.Combobox(pestaña_prod, width=ancho1,state="readonly")
 proveedor.place(relx=0.07, rely=0.29)
 proveedor.bind("<<ComboboxSelected>>", partial(buscar,"proveedor"))
@@ -924,11 +932,16 @@ boton_vencimiento.place(relx=0.92, rely=0.1, relheight=0.07)
 boton_corregir= Button(pestaña_prod, text="Corregir",command=correccion)
 boton_corregir.place(relx=0.75, rely=0.2, relheight=0.07)
 
-
+combo_var4 = tk.StringVar()
 ttk.Label(pestaña_desp, text="Producto:").place(relx=0,rely=0.01)
-producto_combo = ttk.Combobox(pestaña_desp,width=50,state="readonly")
+producto_combo = ttk.Combobox(pestaña_desp,width=50,textvariable=combo_var4)
 producto_combo.place(relx=0.05,rely=0.01)
 producto_combo.bind("<<ComboboxSelected>>",cargar_datos)
+producto_combo.bind('<Return>', partial(filtrar_opciones,producto_combo,"prod"))
+
+
+
+
 ttk.Label(pestaña_desp, text="Lote:").place(relx=0.02,rely=0.08)
 lote_combo = ttk.Combobox(pestaña_desp, width=30,state="readonly")
 lote_combo.place(relx=0.05,rely=0.08) 

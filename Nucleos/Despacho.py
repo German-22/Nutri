@@ -12,25 +12,27 @@ from csv import reader, writer
 from collections import defaultdict
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment
-
+opciones_form = []
 def leer_base():    
+    global opciones_form
     try:
         conexion=sqlite3.connect(entrada_ruta_bd.get())            
         a = conexion.execute("""SELECT nombre from formulas where (sector = ? or sector = ? or nombre = ?) ORDER BY nombre;""",("Nucleos_Comasa","Nucleos_Cereales","Leche_en_Polvo_Abanderadox800g"))  
-        b = a.fetchall()                                            
+        b = a.fetchall()       
+        opciones_form = b                                   
         c = conexion.execute("""SELECT destino from destinos;""")  
         d = c.fetchall() 
         e = conexion.execute("""SELECT cliente from clientes;""")  
         f = e.fetchall()   
-        e = conexion.execute("""SELECT OC from ordenes;""")  
+        e = conexion.execute("""SELECT OC from ordenes where estado = ?;""",("pendiente",))  
         g = e.fetchall()  
-        oc_combo["values"] = list(g)  
+        oc_combo_sim["values"] = list(g)  
         e = conexion.execute("""SELECT * from ordenes;""")  
         g = e.fetchall() 
         if g:
             for fila in g:
                 treeoc.insert("", "end", values=fila)
-        e = conexion.execute("""SELECT DISTINCT nplanilla,fecha, destino from planillas;""")  
+        e = conexion.execute("""SELECT DISTINCT nplanilla,fecha, destino from planillas where estado != "despachado";""")  
         g = e.fetchall() 
         
         if g:
@@ -47,6 +49,7 @@ def selecionar_ruta(s):
     if  s == "bd":
         ruta_guardar = []
         ruta_bd= filedialog.askopenfilename(initialdir="/", title="Seleccionar Base de Datos")                                        
+        ruta_bd = ruta_bd.strip("{}")
         entrada_ruta_bd.delete("0", "end")
         entrada_ruta_bd.insert(0, str(ruta_bd))
         ruta_guardar.append(ruta_bd) 
@@ -78,6 +81,7 @@ def selecionar_ruta(s):
     if s == "planilla":
         ruta_guardar = []
         ruta_registro= filedialog.askdirectory(initialdir="/", title="Seleccionar Ruta para Guardar Excel")                                         
+        ruta_registro = ruta_registro.strip("{}")
         entrada_rutae.delete("0", "end")
         entrada_rutae.insert(0, str(ruta_registro))
         ruta_guardar.append(ruta_registro) 
@@ -133,6 +137,7 @@ def leer_archivo():
         return
 
 def cargar_datos(f):    
+    stock = 0
     producto = producto_combo.get()
     for s in tree.get_children():
         tree.delete(s)
@@ -142,9 +147,14 @@ def cargar_datos(f):
             ORDER BY id DESC
         ''', (producto,))
     for fila in a.fetchall():
-        tree.insert("", "end", values=fila)  
-    conexion.close()                       
-
+        stock = stock + float(fila[6])
+        tree.insert("", "end", values=fila) 
+    e = conexion.execute("""SELECT OC from ordenes where estado = ? and producto = ?;""",("pendiente",producto))  
+    g = e.fetchall()  
+    oc_combo["values"] = list(g) 
+    conexion.close()  
+    stock_total.delete("0", "end")  
+    stock_total.insert(0,stock)                    
 
 def obtener_productos():
     conexion=sqlite3.connect(entrada_ruta_bd.get())      
@@ -204,9 +214,55 @@ def eliminar_planilla():
     cargar_datos(planilla)     
     return
 
+def agregar_sim():   
+    oc = oc_combo_sim.get()
+    producto = producto_combo_sim.get()    
+    seleccion = parsear_pallets(pallets_entry_sim.get().strip())
+    lote = entry_lote_sim.get()
+    vto = entry_vto_sim.get()
+    #responsable = resp_sim.get()
+    cajas = entry_cajas_sim.get()
+    if oc =="":
+        messagebox.showwarning("Error","Seleccione un OC")
+        return
+    if producto =="" or pallets_entry_sim.get()=="" or lote == "" or vto == "" or cajas == "":
+        messagebox.showwarning("Error","Complete los Campos")
+        return
+    conexion=sqlite3.connect(entrada_ruta_bd.get()) 
+    a = conexion.execute(f'''SELECT destino FROM ordenes WHERE OC = ?''', (oc,))
+    b = a.fetchall()
+    conexion.close() 
+    for i in seleccion:
+        tree_sim.insert("", "end", values=["",producto,i,lote,vto,cajas,b[0][0],oc])
+    return
+
+def agregar_cajas_sim():
+    cajas = cajas_entry_sim.get()
+    producto = producto_combo_sim.get()
+    oc = oc_combo_sim.get()
+    lote = entry_lote_sim.get()
+    vto = entry_vto_sim.get()
+    #responsable = resp_sim.get()
+    pallet = pallet_sim.get()
+    if oc =="":
+        messagebox.showwarning("Error","Seleccione un OC")
+        return
+    if pallet == "" or producto =="" or lote == "" or vto == "" or cajas == "":
+        messagebox.showwarning("Error","Complete los Campos")
+        return
+    conexion=sqlite3.connect(entrada_ruta_bd.get()) 
+    a = conexion.execute(f'''SELECT destino FROM ordenes WHERE OC = ?''', (oc,))
+    b = a.fetchall()
+    conexion.close()
+    tree_sim.insert("", "end", values=["",producto,pallet,lote,vto,cajas,b[0][0],oc])
+    return
+   
+
 def agregar():
+    
     producto = producto_combo.get()    
     seleccion = parsear_pallets(pallets_entry.get().strip())
+    
     if seleccion == "":
         messagebox.showwarning("Error","Error en valor ingresado")
         return
@@ -226,8 +282,7 @@ def agregar():
         b = conexion.execute(f'''SELECT destino FROM ordenes WHERE OC = ?''', (oc,))
         a = b.fetchall()
         
-        for fila in d:
-    # Revisar si ya existe en tree2 una fila con mismo producto, pallet y lote
+        for fila in d:    
             duplicado = False
             for item in tree2.get_children():
                 valores_existentes = tree2.item(item, "values")
@@ -245,6 +300,7 @@ def agregar():
     except Exception as e:
         conexion.rollback()
         messagebox.showerror("Error", str(e))
+
 
 def agregar_oc():
     
@@ -285,6 +341,23 @@ def agregar_oc():
         messagebox.showinfo(message="Dato Invalido", title="Error")
         conexion.close()
     return
+
+def finalizar_oc():
+    id = treeoc.item(treeoc.selection())["values"][0]      
+    conexion=sqlite3.connect(entrada_ruta_bd.get())    
+    conexion.execute("""UPDATE ordenes SET estado = "finalizado" WHERE id = ?;""" ,(id,))
+    conexion.commit()
+    for s in treeoc.get_children():
+        treeoc.delete(s)
+    e = conexion.execute("""SELECT * from ordenes;""")  
+    g = e.fetchall() 
+    if g:
+        for fila in g:
+            treeoc.insert("", "end", values=fila)
+    conexion.close()
+
+    return
+    
 
 def agregar_cajas():
     cajas = cajas_entry.get()
@@ -340,6 +413,16 @@ def parsear_pallets(entrada):
         else:
             resultado.append(int(parte))
     return resultado
+
+def simulacion():
+    valores = []  
+       
+    for item_id in tree_sim.get_children():
+        valores.append(tree_sim.item(item_id)["values"])
+    if not valores:
+        messagebox.showwarning("Advertencia", "No hay datos para exportar.")
+        return
+    crear_planilla(valores)
 
 def crear_planilla(valores):
     try:  
@@ -527,9 +610,7 @@ def ejecutar_exportacion():
         print("Error al actualizar la base de datos:", e)
         conexion.close()
 
-    # Obtener datos del treeview
-       
-         
+    # Obtener datos del treeview         
     try:
         conexion = sqlite3.connect(entrada_ruta_bd.get())
         # Obtener destino desde ordenes
@@ -664,10 +745,59 @@ def eliminar_pallet():
     cargar_datos(id)
     return
        
+
+def filtrar_opciones(formula,opciones,s):    
+    if opciones == "form_s":
+        opcion = opciones_form
+        ent = combo_var.get()
+        entrada = combo_var.get().lower()
+    elif opciones == "form":
+        opcion = opciones_form
+        entrada = combo_var2.get().lower()
+        ent = combo_var2.get()
+    elif opciones == "oc":
+        opcion = opciones_form
+        entrada = combo_var3.get().lower()
+        ent = combo_var3.get()
+        
+    # Filtrar opciones que contengan el texto
+    filtradas = [op for op in opcion if entrada in op[0].lower()]
+    
+    # Guardar posición del cursor y texto actual
+    cursor_pos = formula.index(tk.INSERT)
+    
+    # Actualizar valores del Combobox
+    formula['values'] = filtradas if filtradas else opcion
+    
+    # Restaurar el texto y la posición del cursor
+    formula.delete(0, tk.END)
+    formula.insert(0, ent)
+    formula.icursor(cursor_pos)
+    
+    # Autocompletar si hay una sola opción
+    if len(filtradas) == 1:
+        formula.delete(0, tk.END)
+        formula.insert(0, filtradas[0])
+        formula.icursor(tk.END)
+
+    # Mostrar menú desplegable
+    formula.event_generate('<Down>')
 # ---------------- Interfaz ----------------
 
+def ordenar(col):    
+    if col == "pallet":
+        elem = []
+        elem_ordenado = []
+        for t in tree.get_children():
+            elem.append((tree.item(t)))       
+        elem_ordenado = sorted(elem, key=lambda x: x["values"][3])        
+        for s in tree.get_children():
+            tree.delete(s)
+        for s in elem_ordenado:
+            tree.insert("", tk.END,values=(s["values"]))
+
 root = tk.Tk()
-root.title("Aplicación de Producción")
+root.title("Despacho")
 root.geometry("2000x800")
 
 # Crear contenedor de pestañas
@@ -676,15 +806,110 @@ notebook.place(x=0, y=0, relheight=1, relwidth=1)
 
 # Pestaña: Exportar Producción
 frame_exportar = ttk.Frame(notebook)
-notebook.add(frame_exportar, text="Exportar Producción")
+notebook.add(frame_exportar, text="Despacho")
 
-# Contenido de la pestaña Exportar Producción
+frame_sim_desp = ttk.Frame(notebook)
+notebook.add(frame_sim_desp, text="Simular Despacho")
+# Contenido de la pestaña Simular despacho
+ttk.Label(frame_sim_desp, text="Producto:").place(relx=0,rely=0.01)
+combo_var = tk.StringVar()
+combo_var2 = tk.StringVar()
+producto_combo_sim = ttk.Combobox(frame_sim_desp,width=50,textvariable=combo_var)
+producto_combo_sim.place(relx=0.05,rely=0.01)
+producto_combo_sim.bind('<Return>', partial(filtrar_opciones,producto_combo_sim,"form_s"))
+ttk.Label(frame_sim_desp, text="OC:").place(relx=0.02,rely=0.08)
+oc_combo_sim = ttk.Combobox(frame_sim_desp, width=50)
+oc_combo_sim.place(relx=0.05,rely=0.08)
+
+contenedor_tree_sim = ttk.Frame(frame_sim_desp)
+contenedor_tree_sim.place(relx=0.01, rely=0.18, relwidth=0.6, relheight=0.4)  # Ajusta si es necesario
+ttk.Label(contenedor_tree_sim, text="Produccion y Despacho:").place(relx=0,rely=0)
+# Scrollbars
+scrollbar_y = ttk.Scrollbar(contenedor_tree_sim, orient="vertical")
+scrollbar_x = ttk.Scrollbar(contenedor_tree_sim, orient="horizontal")
+
+# Treeview con scrollbars
+tree_sim = ttk.Treeview(
+    contenedor_tree_sim,
+    columns=("","Producto", "Pallet", "Lote", "Vto", "Cajas","Destino", "OC"),
+    show='headings',
+    yscrollcommand=scrollbar_y.set,
+    xscrollcommand=scrollbar_x.set,
+    height=10    
+)
+
+scrollbar_y.config(command=tree_sim.yview)
+scrollbar_x.config(command=tree_sim.xview)
+
+# Configurar columnas
+for col in tree_sim["columns"]:
+    tree_sim.heading(col, text=col)
+    if col == "":
+        tree_sim.column(col, width=0, stretch=False)
+    elif col in ("Vto", "Cajas", "Pallet"):        
+        tree_sim.column(col, anchor="center", width=70,stretch=False)
+    elif col == "Producto":
+        tree_sim.column(col, anchor="center", width=200,stretch=False)
+    else:
+        
+        tree_sim.column(col, anchor="center", width=100,stretch=False)
+
+# Empaquetar widgets
+tree_sim.place(relx=0,rely=0.06, relheight=0.85,relwidth=0.96)
+scrollbar_y.place(relx=0.95,rely=0.06, relheight=0.85,relwidth=0.05)
+scrollbar_x.place(relx=0,rely=0.9, relheight=0.1,relwidth=0.98)
+
+
+ttk.Label(frame_sim_desp, text="Pallets (ej: 1,3,5-8):").place(relx=0.3,rely=0)
+
+pallet_frame_sim = ttk.Frame(frame_sim_desp)
+pallet_frame_sim.place(relx=0.3,rely=0.03)
+
+vcmd = (root.register(validar_entrada), '%P')
+pallets_entry_sim = ttk.Entry(pallet_frame_sim, width=30, validate="key", validatecommand=vcmd)
+pallets_entry_sim.pack(side="left", padx=(5, 0)) 
+
+vcmd = (root.register(validar_entrada2), '%P')
+cajas_frame_sim = ttk.Frame(frame_sim_desp)
+cajas_frame_sim.place(relx=0.3,rely=0.09,relheight=0.1,relwidth=0.2)
+ttk.Label(cajas_frame_sim,text="N° de cajas:").place(relx=0,rely=0)
+ttk.Label(cajas_frame_sim,text="N° de Pallet:").place(relx=0,rely=0.5)
+cajas_entry_sim = ttk.Entry(cajas_frame_sim, width=10,validate="key", validatecommand=vcmd)
+cajas_entry_sim.place(relx=0.3,rely=0)
+pallet_sim = ttk.Entry(cajas_frame_sim, width=10,validate="key", validatecommand=vcmd)
+pallet_sim.place(relx=0.3,rely=0.5)
+ttk.Button(cajas_frame_sim, text="Agregar a Planilla", command=agregar_cajas_sim).place(relx=0.6,rely=0.2)
+ttk.Button(pallet_frame_sim, text="Agregar a Planilla", command=agregar_sim).pack(side="left", padx=(5, 0))  
+
+ttk.Label(frame_sim_desp, text="Lote:").place(relx=0.5,rely=0.01)
+entry_lote_sim = ttk.Entry(frame_sim_desp, width=30)
+entry_lote_sim.place(relx=0.55,rely=0.01)
+ttk.Label(frame_sim_desp, text="Vto:").place(relx=0.5,rely=0.05)
+entry_vto_sim = ttk.Entry(frame_sim_desp, width=30)
+entry_vto_sim.place(relx=0.55,rely=0.05)
+ttk.Label(frame_sim_desp, text="Cajas/pallet:").place(relx=0.5,rely=0.09)
+
+entry_cajas_sim = ttk.Entry(frame_sim_desp, width=30,validate="key", validatecommand=vcmd)
+entry_cajas_sim.place(relx=0.55,rely=0.09) 
+#ttk.Label(frame_sim_desp, text="Responsable:").place(relx=0.5,rely=0.13)
+#resp_sim = ttk.Entry(frame_sim_desp, width=30)
+#resp_sim.place(relx=0.55,rely=0.13)
+btn_exp_sim = ttk.Button(frame_sim_desp, text="Generar Planilla",command = simulacion)
+btn_exp_sim.place(relx=0.69, rely=0.35,relheight=0.08)
+
+# Contenido de la pestaña Despacho
 ttk.Label(frame_exportar, text="Producto:").place(relx=0,rely=0.01)
-producto_combo = ttk.Combobox(frame_exportar,width=50)
+producto_combo = ttk.Combobox(frame_exportar,width=50,textvariable=combo_var2)
 producto_combo.place(relx=0.05,rely=0.01)
-ttk.Label(frame_exportar, text="OC:").place(relx=0.02,rely=0.08)
+producto_combo.bind('<Return>', partial(filtrar_opciones,producto_combo,"form"))
+ttk.Label(frame_exportar, text="OC:").place(relx=0.02,rely=0.13)
 oc_combo = ttk.Combobox(frame_exportar, width=50)
-oc_combo.place(relx=0.05,rely=0.08) 
+oc_combo.place(relx=0.05,rely=0.13) 
+
+
+ttk.Label(frame_exportar, text="Stock Total:").place(relx=0,rely=0.07)
+stock_total = ttk.Entry(frame_exportar, width=20)
+stock_total.place(relx=0.05,rely=0.07) 
 
 ttk.Label(frame_exportar, text="Pallets (ej: 1,3,5-8):").place(relx=0.65,rely=0.3)
 
@@ -696,14 +921,12 @@ pallets_entry = ttk.Entry(pallet_frame, width=30, validate="key", validatecomman
 pallets_entry.pack(side="left", padx=(5, 0)) 
 
 ttk.Button(pallet_frame, text="Agregar a Planilla", command=agregar).pack(side="left", padx=(5, 0))  
-  
-
 ttk.Label(frame_exportar, text="Cantidad de Cajas:").place(relx=0.3,rely=0.05)
-
-cajas_act = ttk.Entry(frame_exportar, width=30)
+vcmd = (root.register(validar_entrada), '%P')
+cajas_act = ttk.Entry(frame_exportar, width=30,validate="key", validatecommand=vcmd)
 cajas_act.place(relx=0.37,rely=0.05) 
 ttk.Label(frame_exportar, text="N° de Pallet:").place(relx=0.3,rely=0.01)
-n_pallet = ttk.Entry(frame_exportar, width=30)
+n_pallet = ttk.Entry(frame_exportar, width=30,validate="key", validatecommand=vcmd)
 n_pallet.place(relx=0.37,rely=0.01) 
 ttk.Label(frame_exportar, text="Lote:").place(relx=0.3,rely=0.09)
 entry_lote = ttk.Entry(frame_exportar, width=30)
@@ -759,7 +982,10 @@ for col in tree["columns"]:
     tree.heading(col, text=col)
     if col == "id":
         tree.column(col, width=0, stretch=False)
-    elif col in ("Pallet", "Vto", "Cajas"):
+    elif col in ("Pallet"):
+        tree.column(col, anchor="center", width=70,stretch=False)
+        tree.heading(col, text=col,command=lambda: ordenar("pallet"))
+    elif col in ("Vto", "Cajas"):
         tree.column(col, anchor="center", width=70,stretch=False)
     elif col == "Producto":
         tree.column(col, anchor="center", width=200,stretch=False)
@@ -945,17 +1171,18 @@ for col in treeoc["columns"]:
         treeoc.column(col, anchor="center", width=100)
 
 treeoc.place(relx=0,rely=0.08, relheight=0.85,relwidth=0.96)
-
+combo_var3 = tk.StringVar()
 scrollbar_y.place(relx=0.95,rely=0.08, relheight=0.85,relwidth=0.05)
 scrollbar_x.place(relx=0,rely=0.9, relheight=0.1,relwidth=0.98)
 ttk.Label(frame_oc, text="Producto:").place(relx=0.62,rely=0.06)
-producto_combo_oc = ttk.Combobox(frame_oc,width=50)
+producto_combo_oc = ttk.Combobox(frame_oc,width=50,textvariable=combo_var3)
 producto_combo_oc.place(relx=0.67,rely=0.06)
+producto_combo_oc.bind('<Return>', partial(filtrar_opciones,producto_combo_oc,"oc"))
 ttk.Label(frame_oc, text="N° de OC:").place(relx=0.62,rely=0.11)
 noc = ttk.Entry(frame_oc, width=30)
 noc.place(relx=0.67,rely=0.11)
-ttk.Label(frame_oc, text="Cantidad:").place(relx=0.62,rely=0.16)
-entry_cantidad = ttk.Entry(frame_oc, width=30)
+ttk.Label(frame_oc, text="Cantidad:").place(relx=0.62,rely=0.16,)
+entry_cantidad = ttk.Entry(frame_oc, width=30,validate="key", validatecommand=vcmd)
 entry_cantidad.place(relx=0.67,rely=0.16)
 ttk.Label(frame_oc, text="Destino:").place(relx=0.62,rely=0.21)
 combo_destino = ttk.Combobox(frame_oc,width=50)
@@ -969,19 +1196,17 @@ fecha_pedido.place(relx=0.69,rely=0.31)
 
 btn_cargar = ttk.Button(frame_oc, text="Agregar", command= agregar_oc)
 btn_cargar.place(relx=0.69, rely=0.36)
-btn_finalizar = ttk.Button(frame_oc, text="Finalizar", command= selecionar_ruta)
+btn_finalizar = ttk.Button(frame_oc, text="Finalizar", command= finalizar_oc)
 btn_finalizar.place(relx=0.69, rely=0.42)
 
 leer_archivo()
 producto_combo['values'],combo_destino['values'],combo_cliente['values']  = leer_base()
 producto_combo_oc['values'] = producto_combo['values']
-
+producto_combo_sim['values']=producto_combo['values']
 producto_combo.bind("<<ComboboxSelected>>",cargar_datos)
-producto_combo['state'] = 'readonly'
-producto_combo_oc['state'] = 'readonly'
+
 combo_destino['state'] = 'readonly'
 combo_cliente['state'] = 'readonly'
-
 
 notebook.add(frame_oc, text="Ordenes de Compra")
 notebook.add(frame_config, text="Configuración")

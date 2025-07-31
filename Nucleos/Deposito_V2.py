@@ -419,7 +419,11 @@ def seleccionar_mp(s):
     conexion.close()
 
 def despachar():
-    lista = tree.item(tree.selection())["values"] 
+    item = tree.selection()
+    if not item:
+        messagebox.showwarning("Error", "Seleccione un elemento")
+        return     
+    lista = tree.item(item)["values"] 
     chofer = entrada_chof.get()
     remito = entrada_rem.get()
     estado = entrada_est.get()
@@ -427,25 +431,50 @@ def despachar():
     trans = entrada_tra.get()
     comen = entrada_com.get()
     resp = entrada_res.get()
-    if remito == "" or chofer=="" or trans=="" or patente=="" or estado=="" or resp=="":
+    habil = entrada_h.get()
+    if remito == "" or chofer=="" or trans=="" or patente=="" or estado=="" or resp=="" or habil == "":
         messagebox.showwarning("Error", "Complete los campos")
         return     
     
-    lista2 = [remito,chofer,trans,patente,estado,comen,resp]
+    lista2 = [remito,chofer,trans,patente,estado,comen,resp, habil]
     for i in lista2:    
         lista.append(i)
     try:
+        tree.delete(item)    
+        tree.insert("", "end", values=lista)
         conexion=sqlite3.connect(entrada_ruta.get())
-        conexion.execute("""UPDATE planillas SET remito = ?,chofer = ?,transporte = ?,patente = ?,estado_trans = ?,comentario=?,responsable=? ,estado = "despachado" WHERE nplanilla = ?;""",(remito,chofer,trans,patente,estado,comen,resp,lista[0]))
+        conexion.execute("""UPDATE planillas SET remito = ?,chofer = ?,transporte = ?,patente = ?,estado_trans = ?,comentario=?,responsable=? ,estado = "despachado",habilitacion = ? WHERE nplanilla = ? ;""",(remito,chofer,trans,patente,estado,comen,resp,habil,lista[0]))
         conexion.commit()
         conexion.close()
-        tree.delete(tree.selection())    
-        tree.insert("", "end", values=lista)
+        
     except:
         messagebox.showwarning("Error", "Error al cargar el depacho.")
         return
     crear_pdf_despacho(lista[0])
     return
+
+def cargar_basura(tipo,cantidad):
+        sec = sector.get()
+        hora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+               
+        if sec == "" or cantidad.get() == "":
+            messagebox.showwarning("Datos incompletos", "Completa los Campos")
+            return
+        conexion = sqlite3.connect(entrada_ruta.get())
+        conexion.execute('''
+                INSERT INTO residuos (fecha,tipo,sector,cantidad)
+                VALUES (?, ?, ?, ?)
+            ''', (hora, tipo,sec,cantidad.get()))
+        conexion.commit()
+        return
+
+def validar_entero(valor):
+        try:
+            int(valor)
+            return True
+        except:      
+            return False 
+
 
 ventana = Tk()
 ventana.geometry("1000x650")
@@ -458,8 +487,12 @@ pestaña_despacho = ttk.Frame(tab_control, borderwidth=10, relief="solid")
 pestaña_despacho.place(x=0, y=0, relheight=1, relwidth=1)
 pestaña_conf = ttk.Frame(tab_control, borderwidth=10, relief="solid")
 pestaña_conf.place(x=0, y=0, relheight=1, relwidth=1)
+
+tab_basura = ttk.Frame(tab_control, borderwidth=10, relief="solid")
+
 tab_control.add(pestaña_recepcion, text="Recepciones")
 tab_control.add(pestaña_despacho, text="Despachos")
+tab_control.add(tab_basura, text="Residuos")
 tab_control.add(pestaña_conf, text="Configuracion")
 
 label_ruta_registro = ttk.Label(pestaña_conf, text="Ruta a Carpeta de Registros")
@@ -488,7 +521,7 @@ scrollbar_y = ttk.Scrollbar(contenedor_tree, orient="vertical")
 scrollbar_x = ttk.Scrollbar(contenedor_tree, orient="horizontal")
 tree = ttk.Treeview(
     contenedor_tree,
-    columns=("cod", "Fecha", "Producto", "Destino", "Cajas","Remito","Chofer","Transporte","Patente","Estado","Comentario","Responsable"),
+    columns=("cod", "Fecha", "Producto", "Destino", "Cajas","Remito","Chofer","Transporte","Patente","Estado","Comentario","Responsable", "Habilitacion"),
     show='headings',
     yscrollcommand=scrollbar_y.set,
     xscrollcommand=scrollbar_x.set,  
@@ -507,6 +540,8 @@ for col in tree["columns"]:
         tree.column(col, anchor="center", width=200,stretch=False)
     else:
         tree.column(col, anchor="center", width=100,stretch=False)
+
+     
 
 # Empaquetar widgets
 tree.place(relx=0,rely=0.06, relheight=0.85,relwidth=0.96)
@@ -531,9 +566,12 @@ entrada_tra.place(relx=0.42, rely=0.07)
 ttk.Label(pestaña_despacho, text="Comentario").place(relx=0.35, rely=0.12)
 entrada_com = ttk.Entry(pestaña_despacho, width= 30)
 entrada_com.place(relx=0.42, rely=0.12)
-ttk.Label(pestaña_despacho, text="Responsable").place(relx=0.65, rely=0.02)
+ttk.Label(pestaña_despacho, text="Habilitacion").place(relx=0.65, rely=0.02)
+entrada_h= ttk.Entry(pestaña_despacho, width= 30)
+entrada_h.place(relx=0.73, rely=0.02)
+ttk.Label(pestaña_despacho, text="Responsable").place(relx=0.65, rely=0.07)
 entrada_res = ttk.Entry(pestaña_despacho, width= 30)
-entrada_res.place(relx=0.73, rely=0.02)
+entrada_res.place(relx=0.73, rely=0.07)
 btn_despachar = ttk.Button(pestaña_despacho,command=despachar,text="Despachar")
 btn_despachar.place(relx=0.45, rely=0.2,relheight=0.07)
 
@@ -637,6 +675,45 @@ cuadro.heading("Cantidad", text="Cantidad")
 cuadro.heading("N° Remito", text="N° de Remito")
 cuadro.heading("Responsable", text="Responsable")
 cuadro.place(relx=0.01, rely=0.7, relwidth=0.95, relheight=0.2)
+
+
+
+frm = tab_basura   
+ttk.Label(frm, text="Sector").place(relx=0.05, rely=0.01)        
+sector = ttk.Combobox(frm, width= 20,values=["Envasado_Cereales","Envasado_Sec_comasa","Envasado_primario_comasa","Extrusora","Deposito"])
+sector.place(relx=0.1, rely=0.01)   
+ttk.Label(frm, text="Polvillo").place(relx=0.05, rely=0.1)        
+entrada_polvillo = ttk.Entry(frm, width= 20,validate="key",validatecommand=(frm.register(validar_entero),"%S"))
+entrada_polvillo.place(relx=0.2, rely=0.1) 
+btn_guardar_polvillo = ttk.Button(frm, text="Cargar", command= partial(cargar_basura,"polvillo",entrada_polvillo))
+btn_guardar_polvillo.place(relx=0.5, rely=0.1)
+ttk.Label(frm, text="Barrido").place(relx=0.05, rely=0.25)         
+entrada_barrido = ttk.Entry(frm, width= 20,validate="key",validatecommand=(frm.register(validar_entero),"%S"))
+entrada_barrido.place(relx=0.2, rely=0.25)  
+btn_guardar_barrido = ttk.Button(frm, text="Cargar", command= partial(cargar_basura,"barrido",entrada_barrido))
+btn_guardar_barrido.place(relx=0.5, rely=0.25)   
+ttk.Label(frm, text="Scrap").place(relx=0.05, rely=0.4)        
+entrada_scrap = ttk.Entry(frm, width= 20,validate="key",validatecommand=(frm.register(validar_entero),"%S"))
+entrada_scrap.place(relx=0.2, rely=0.4) 
+btn_guardar_scrap = ttk.Button(frm, text="Cargar", command=partial(cargar_basura,"scrap",entrada_scrap))
+btn_guardar_scrap.place(relx=0.5, rely=0.4)
+ttk.Label(frm, text="Plastico").place(relx=0.05, rely=0.55)        
+entrada_plastico = ttk.Entry(frm, width= 20,validate="key",validatecommand=(frm.register(validar_entero),"%S"))
+entrada_plastico.place(relx=0.2, rely=0.55) 
+btn_guardar_plastico = ttk.Button(frm, text="Cargar", command= partial(cargar_basura,"plastico",entrada_plastico))
+btn_guardar_plastico.place(relx=0.5, rely=0.55)
+ttk.Label(frm, text="Carton").place(relx=0.05, rely=0.7)              
+entrada_carton = ttk.Entry(frm, width= 20,validate="key",validatecommand=(frm.register(validar_entero),"%S"))
+entrada_carton.place(relx=0.2, rely=0.7)  
+btn_guardar_carton = ttk.Button(frm, text="Cargar", command= partial(cargar_basura,"carton",entrada_carton))
+btn_guardar_carton.place(relx=0.5, rely=0.7)
+ttk.Label(frm, text="Organico").place(relx=0.05, rely=0.85)              
+entrada_organico = ttk.Entry(frm, width= 20,validate="key",validatecommand=(frm.register(validar_entero),"%S"))
+entrada_organico.place(relx=0.2, rely=0.85)  
+btn_guardar_organico = ttk.Button(frm, text="Cargar", command= partial(cargar_basura,"organico",entrada_organico))
+btn_guardar_organico.place(relx=0.5, rely=0.85)
+        
+
 
 leer_archivo()
 leer_base()
